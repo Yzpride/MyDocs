@@ -1,0 +1,22 @@
+Curse of Dimensionality
+Use R or Python do a multi-class problem
+Probability (Central Limit Theory, Bayes, Poisson, etc.)
+R for Google
+Assumptions for linear regression
+Bias-variance trade-off 
+SQL questions
+what is KPI? How to define it?
+C-value and its explanation
+How to calculate conversion rate?
+Tibble package in R?
+Hyper-parameter tuning method?
+How to handle large datasets in Python, R or SAS?
+What is Tensorflow?
+What is AWS infrastructure?
+What is github?
+What are those marketing models for costumer acquisition and retention?
+Why elastic net?
+What are the colleagues' most used SQL query?
+What are typical modeling excecise for marketing? Direct marketing? Email marketing?
+How to handle rare events in modeling?
+What is A/B testing and how they can help business? Udacity course?
