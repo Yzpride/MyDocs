@@ -1,6 +1,7 @@
 Curse of Dimensionality
 Use R or Python do a multi-class problem
-Probability (Central Limit Theory, Bayes, Poisson, etc.)
+Probability (Central Limit Theory, Bayes, Poisson, etc.) 
+https://ocw.mit.edu/courses/mathematics/18-05-introduction-to-probability-and-statistics-spring-2014/readings/
 R for Google
 Assumptions for linear regression
 Bias-variance trade-off 
