@@ -3,6 +3,7 @@ facet_wrap(~vendor_id)
 wday = fct_relevel(wday, c("Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"))
 66293012 
 .columns
+.dtypes
 .index
 .nlargest()
 .corr()
