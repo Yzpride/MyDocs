@@ -20,3 +20,4 @@ What are the colleagues' most used SQL query?
 What are typical modeling excecise for marketing? Direct marketing? Email marketing?
 How to handle rare events in modeling?
 What is A/B testing and how they can help business? Udacity course?
+R shiny package?
