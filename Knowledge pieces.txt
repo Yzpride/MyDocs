@@ -2,23 +2,37 @@ read.csv(file.choose())
 facet_wrap(~vendor_id)
 wday = fct_relevel(wday, c("Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"))
 66293012 
-.columns
-.dtypes
-.index
-.nlargest()
-.corr()
-.describe()
-.head(20)
-.max()
+
+###Python###
+#import data
 pd.read_csv()
-pd.concat()
-pd.get_dummies()
-.plot.scatter()
-sns.boxplot()
-sns.pairplot()
-.isnull().sum().sort_values(ascending = False)
+
+#Check the data
+.head(20)
+.info()
+.dtypes
+.columns
+.index
+
+#Count NAs
 .count() #count of records excluding missing
 .isnull().sum() #count of missing records
 .isnull().count() #count of records including missing
+.isnull().sum().sort_values(ascending = False)
 
+#Stat summary
+.describe()
+.nlargest()
+.max()
 
+#Feature engineering
+pd.concat()
+
+#Explorative analysis
+.corr()
+.plot.scatter()
+sns.boxplot()
+sns.pairplot()
+
+#Model preparation
+pd.get_dummies()
