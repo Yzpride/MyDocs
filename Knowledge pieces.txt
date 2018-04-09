@@ -28,9 +28,14 @@ pd.read_csv()
 .describe()
 .nlargest()
 .max()
+.mean()
+.sum()
+.std()
 
 #Feature engineering
 pd.concat()
+pd.cut()
+pd.qcut()
 .replace(['a','b','c'] = [1,2,3])
 
 #Explorative analysis
