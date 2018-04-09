@@ -38,6 +38,9 @@ pd.cut()
 pd.qcut()
 .replace(['a','b','c'] = [1,2,3])
 
+#Format conversion
+.astype()
+
 #Explorative analysis
 .corr()
 .plot.scatter()
