@@ -20,6 +20,10 @@ pd.read_csv()
 .isnull().count() #count of records including missing
 .isnull().sum().sort_values(ascending = False)
 
+#Fix NAs
+.fillna()
+.dropna()
+
 #Stat summary
 .describe()
 .nlargest()
