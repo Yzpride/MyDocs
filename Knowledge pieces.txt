@@ -40,6 +40,7 @@ pd.qcut()
 
 #Format conversion
 .astype()
+.map()
 
 #Explorative analysis
 .corr()
