@@ -39,6 +39,7 @@ pd.qcut()
 .replace(['a','b','c'] = [1,2,3])
 .loc([condition],column) = xxx
 .drop(column_list, axis = 1)
+.groupby().describe()
 
 #Format conversion
 .astype()
