@@ -34,6 +34,7 @@ pd.read_csv()
 
 #Feature engineering
 pd.concat()
+pd.merge(df1,df2,on = "xxx", how = "outer")
 pd.cut()
 pd.qcut()
 .replace(['a','b','c'] = [1,2,3])
@@ -51,6 +52,8 @@ pd.qcut()
 sns.heatmap(.corr(),)
 sns.boxplot()
 sns.pairplot()
+.pivot(index = , columns = , values = )
+.pivot_table(index = , columns = , aggfunc =, margins = True )
 
 #Model preparation
 pd.get_dummies()
