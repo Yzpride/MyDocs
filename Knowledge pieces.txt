@@ -4,6 +4,7 @@ read.csv(file.choose())
 
 #Feature engineering
 rowSums()
+substr()
 
 #Explorative analysis
 facet_wrap(~vendor_id)
@@ -11,6 +12,7 @@ facet_wrap(~vendor_id)
 #Format conversion
 wday = fct_relevel(wday, c("Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"))
 as.Date()
+as.matrix()
 paste() #factor to string
 
 
