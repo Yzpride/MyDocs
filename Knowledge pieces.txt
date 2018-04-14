@@ -16,7 +16,7 @@ as.matrix()
 paste() #factor to string
 
 
-###Python###
+###Python Pandas###
 #import data
 pd.read_csv()
 
@@ -68,6 +68,7 @@ sns.boxplot()
 sns.pairplot()
 .pivot(index = , columns = , values = )
 .pivot_table(index = , columns = , aggfunc =, margins = True )
+pd.crosstab(df.var1, df.var2, margins = True)
 
 #Model preparation
 pd.get_dummies()
@@ -127,3 +128,46 @@ svc_params = {
     'kernel' : 'linear',
     'C' : 0.025
     }
+
+###Python Numpy###
+
+a = np.arrary([5,6,7])              #Create a one dim arrary
+a = np.array([[1,2],[3,4],[5,6]])   #Create a two dim array
+a = np.arange(5)                    #Create a series of numbers
+a = np.arange(1,5,2)                #Create a series of numbers by specifying start, stop, and step
+a = np.linspace(1,5,10)             #Create a series of numbers by specifying start, stop, and # of numbers in between
+
+
+a.ndim          #print the dim
+a.itemsize      #item size
+a.dtype         #type
+a.size          #size
+a.shape         #row by col
+a.reshape(2,3)  #reshape to interested dimensions
+a.ravel()       #flatten a array
+
+a.min()
+a.max()
+a.sum()
+a.sum(axis = 0) #col sum
+a.sum(axis = 1) #row sum
+
+np.sqrt(a)
+np.std(a) 
+
+a+b
+a*b
+a/b
+a.dot(b)  #matrix multiplication
+
+#index and slice
+a[0:2]
+a[-1]
+
+#Stack
+np.vstack((a,b))
+np.hstach((a,b))
+
+#Split
+np.vsplit(a,2)
+np.hsplit(a,3)
