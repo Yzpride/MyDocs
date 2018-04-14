@@ -50,6 +50,7 @@ pd.concat()
 pd.merge(df1,df2,on = "xxx", how = "outer")
 pd.cut()
 pd.qcut()
+pd.melt(df, id_vars = [])
 .replace(['a','b','c'] = [1,2,3])
 .loc([condition],column) = xxx
 .drop(column_list, axis = 1)
