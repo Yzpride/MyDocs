@@ -171,3 +171,10 @@ np.hstach((a,b))
 #Split
 np.vsplit(a,2)
 np.hsplit(a,3)
+
+
+###Python Programming###
+Alist.append()
+Alist.insert()      #e.g. Alist.insert(1,'butter')
+len(Alist)
+"astring" in Alist  #look up item in a list
