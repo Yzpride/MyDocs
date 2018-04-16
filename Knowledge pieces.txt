@@ -8,6 +8,7 @@ substr()
 
 #Explorative analysis
 facet_wrap(~vendor_id)
+table(Avector, useNA = "ifany")
 
 #Format conversion
 wday = fct_relevel(wday, c("Mon", "Tues", "Wed", "Thurs", "Fri", "Sat", "Sun"))
