@@ -174,7 +174,80 @@ np.hsplit(a,3)
 
 
 ###Python Programming###
+#General purpose
+dir(Apackage)             #get the all the functions under a package
+import sys
+sys.path.append("C:\XXX") #Add path to python sys search
+pip install Apackage      #Install packages
+pip uninstall Apackage    #Uninstall packages
+
+#list operation
 Alist.append()
 Alist.insert()      #e.g. Alist.insert(1,'butter')
 len(Alist)
 "astring" in Alist  #look up item in a list
+
+#Use input
+num = input("Enter a number: ") #Use enter a number
+
+#If statement
+if XXX:
+  XXX
+elif XXX:
+  XXX
+else:
+  XXX
+  
+#For loop
+For i in range(len(Alist)):
+  XXX
+  if XXX:
+    continue
+  if XXX:
+    break
+
+#While loop
+i = 1
+while i <=5:
+  XXX
+  i = i + 1
+
+#Function
+def Afunction(Aparam = a, Bparam = b):
+  XXX
+  return XXX
+  
+#Dictionary
+del d["XXX"]    #Delete element
+for k,v in d.items():
+  pring ("key:", k, "value:", v)
+d.clear()       #empty dictionary
+
+#Tuple (immutable)
+Atuple = (5,9)
+
+#Write a file
+f = open("C:\\XXX\\.txt", "w")  #"w" is write or overwrite, "a" is append, "r" is read
+f.write("I Love Python")
+f.close()
+
+ #Read a file
+f = open("C:\\XXX\\.txt", "r")
+print(f.read())                
+f.close()
+
+#Open a file, read it and append word count for each line at the beginning
+f = open("C:\\XXX\\File_to_Read.txt", "r") 
+f_out = open("C:\\XXX\\File_To_Write.txt", "w")
+for line in f:
+  tokens = line.split(' ')
+  f_out.write(" wordcount:" + str(len(tokens)) + line )
+f.close()
+f_out.close()
+
+#With statement
+with open("C:\\XXX\\File_to_Read.txt","r") as f:
+  print(f.read())   #Use with statement to read file so that we do need to use .close() to close a file
+print(f.closed)     #Check whether is file is closed
+
+
