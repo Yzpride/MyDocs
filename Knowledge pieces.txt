@@ -257,4 +257,40 @@ with open("C:\\XXX\\File_to_Read.txt","r") as f:
   print(f.read())   #Use with statement to read file so that we do need to use .close() to close a file
 print(f.closed)     #Check whether is file is closed
 
+#Exception handling
+x = input("Enter number1: ")
+y = input("Enter number2: ")
+try: 
+  z = int(x)/int(y)
+except ZeroDivisionError:
+  print ('Division by zero exception')
+  z = None
+except TypeError:
+  print ('Type error exception")
+  z = None
+print("Division is: ", z)
+
+#Object oriented programming
+class Human:
+  def __init__(self, n, o):
+    self.name = n
+    self.occupation = o
+  
+  def do_work(self):
+    if self.occupation == "tennis player":
+      print(self.name, "plays tennis")
+    elif self.occupation == "actor":
+      print(self.name, "shoots film")
+  
+  def speaks(self):
+    print(self.name, "says how are you?")
+
+tom = Human("tom cruise","actor")
+tom.do_work()
+tom.speaks()
+
+maria = Human("maria sharapova", "tennis player")
+maria.do_work()
+maria.speaks()
+  
 
