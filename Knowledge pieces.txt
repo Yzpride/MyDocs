@@ -38,6 +38,24 @@ as.Date()
 as.matrix()
 paste() #factor to string
 
+#PCA
+pr_out <- prcomp(df, scale = TRUE)
+names(pr_out)
+pr_out$center             #Mean of the variables prior to scaling
+pr_out$scale              #Standard deviations of the variables prior to scaling
+pr_out$rotation           #Loadings for PCA
+pr_out$x                  #n*p matrix with its pth column being the pth principle component score vector. check it by dim(pr_out)
+pr_out$sdev               #Standard deviation of each principle component
+pr_var <- pr_out$sdev^2   #Variance of each principle component
+pre <- pr_var/sum(pr_var) #Proportion of variance explained by each variable 
+
+biplot(pr_out, scale = 0) #Plot the first two principle components (scale = 0 ensures that the arrows are scaled to represent loadings.
+plot(pve,         xlab = "Pr comp", ylab = "PVE",     ylim = c(0,1), type = 'b')  #Plot the PVE chart
+plot(cumsum(pve), xlab = "Pr comp", ylab = "Cum PVE", ylim = c(0,1), type = 'b')  #Plot the cumulative PVE chart
+
+
+
+
 
 ###Python Pandas###
 #import data
