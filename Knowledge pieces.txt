@@ -327,5 +327,7 @@ tom.speaks()
 maria = Human("maria sharapova", "tennis player")
 maria.do_work()
 maria.speaks()
-  
+
+#List comprehension
+even_num = [i*i for i in range(5) if i%2 = 0]
 
