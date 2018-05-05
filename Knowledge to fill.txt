@@ -5,6 +5,7 @@ R for Google
 Assumptions for linear regression
 Bias-variance trade-off 
 SQL questions
+Leedcode SQL easy and medium
 what is KPI? How to define it?
 C-value and its explanation
 How to calculate conversion rate?
@@ -22,4 +23,3 @@ How to handle rare events in modeling?
 What is A/B testing and how they can help business? Udacity course?
 R shiny package?
 Biased Coin?
-Leedcode SQL easy and medium
