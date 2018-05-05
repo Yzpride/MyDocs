@@ -21,3 +21,4 @@ What are typical modeling excecise for marketing? Direct marketing? Email market
 How to handle rare events in modeling?
 What is A/B testing and how they can help business? Udacity course?
 R shiny package?
+Biased Coin?
