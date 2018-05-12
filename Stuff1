@@ -1,0 +1,474 @@
+library(dplyr)
+library(xlsxjars)
+library(xlsx)
+library(Hmisc)
+library(lubridate)
+
+# data2 <- read.delim(file = '//rb2fpwpn02/RedBankPalisades/HIGH POINT SHARED/SP&A Team/Projects/2018/Acxiom/Modeling data for Yaotian 05_10_2018.TXT', 
+#                     header = TRUE, quote = "", sep = '|')
+
+
+#Import data
+mst_data <- read.csv(file = "F:/NewJersey/YZOU/Online Leads/From Sritej/lead_data_modeling_04_30_18.csv" ,header = TRUE, stringsAsFactors = FALSE)
+
+#import variable name mapping
+map_varname <- read.xlsx(file = "F:/NewJersey/YZOU/Online Leads/Data/Variables from Acxiom Credit and Jornaya_YZ_20180424.xlsx", sheetName = "Sheet1" ,header = TRUE, stringsAsFactors = FALSE)
+
+#Glimpse the data
+glimpse(mst_data)
+head(mst_data)
+mst_data[1,]
+colnames(mst_data)
+which(colnames(mst_data) == 'ibe1271_Personicx_LifeStage_Grou')
+
+#Check the missing and calculate missing percentage for each field
+perc_miss <- data.frame(colnames(mst_data), colMeans(is.na(mst_data))) #Missing percentage
+head(mst_data[is.na(mst_data[,'FIRSTNAME'])==TRUE,]) #Example of missing records
+
+# tmp = merge(data.frame(Order = 1:length(colnames(mst_data)),  
+#                        Varname_org = colnames(mst_data)), 
+#             map_varname, 
+#             by.x =  'Varname_org', 
+#             by.y = 'Element', 
+#             all.x = TRUE)
+
+#Change the variable names to be consistent with Min's naming convention
+map_varname2 <- left_join(data.frame(Order = 1:length(colnames(mst_data)),  
+                                     Varname_org = as.character(colnames(mst_data))),
+                          map_varname, 
+                          by = c('Varname_org' = 'Element')) %>% 
+  arrange(Order) %>% 
+  mutate(Varname = ifelse(is.na(Label), Varname_org, Label))
+colnames(mst_data) <- map_varname2[,'Varname']
+
+#Random sample the dataset
+set.seed(12345)
+sample_data <- sample_n(mst_data, 10000, weight = as.numeric(is.na(mst_data[,'ZIP'])==FALSE))
+
+#Obtain the desriptive statistics for each variable and save them
+sink("F:/NewJersey/YZOU/Online Leads/Data/output.txt")
+describe(sample_data)
+sink()
+closeAllConnections()
+
+#Check the count of unique levels for each variable 
+data.frame(apply(sample_data, 2, function (x) length(unique(x)))) #Count of unique levels for each variable
+lapply(sample_data, function (x) length(unique(x))) > 30
+
+#Check the lead count by date variable (Convert date variable from string to date format)
+head(sample_data[,c('createdate','QuoteDate','QuoteDate2','SoldDate')])
+sapply(sample_data[,c('createdate','QuoteDate','QuoteDate2','SoldDate')], typeof) #check the type of date variables
+sample_data <- sample_data %>% mutate(createdate = as.Date(createdate,"%Y-%m-%d"),
+                                      QuoteDate  = as.Date(QuoteDate ,"%d%b%Y"  ),
+                                      QuoteDate2 = as.Date(QuoteDate2,"%d%b%Y"  ),
+                                      SoldDate   = as.Date(SoldDate  ,"%d%b%Y"  )
+                                      )
+hist(sample_data[,'createdate'],breaks = 'month',xlab = 'createdate', ylab = 'lead count', main = 'Lead count by create date')
+hist(sample_data[,'QuoteDate'],breaks = 'month',xlab = 'QuoteDate', ylab = 'lead count', main = 'Lead count by QuoteDate')
+hist(sample_data[,'QuoteDate2'],breaks = 'month',xlab = 'QuoteDate2', ylab = 'lead count', main = 'Lead count by QuoteDate2')
+hist(sample_data[,'SoldDate'],breaks = 'month',xlab = 'SoldDate', ylab = 'lead count', main = 'Lead count by SoldDate')
+
+summary(sample_data[,c('createdate','QuoteDate','QuoteDate2','SoldDate')])
+
+#Check the target variable (contact, quote, sold)
+data.frame(colMeans(sample_data[, c('Contacts','Post','Quoted','Third_Quoted', 'Sold', 'PRNJ_Auto_Sold','Teachers_Auto_Sold','PRNJ_Home_Sold', 'Third_sOld')]))
+table(sample_data[,c('Contacts','Quoted')])
+table(sample_data[,c('Quoted','Sold')])
+
+
+#Check the variables directly related to target variable
+cbind(Freq = table(sample_data[,'VAR_8']),       Perc = table(sample_data[,'VAR_8'])      /length(sample_data[,'VAR_8']))
+cbind(Freq = table(sample_data[,'Vendor']),      Perc = table(sample_data[,'Vendor'])     /length(sample_data[,'Vendor']))
+cbind(Freq = table(sample_data[,'Lead_Type']),   Perc = table(sample_data[,'Lead_Type'])  /length(sample_data[,'Lead_Type']))
+cbind(Freq = table(sample_data[,'companyName']), Perc = table(sample_data[,'companyName'])/length(sample_data[,'companyName']))
+
+#Check the one-way relationship between target variable and explanatory variable (Categorical variable)
+ #Create a function that perform group-by analysis
+SUM_BY_VAR <- function (df,by_var){
+  df %>%  select(Contacts,Quoted,Sold, !!by_var) %>% 
+          group_by_(Level = by_var) %>% 
+          summarise(Cnt_lead = n(),
+                    Cnt_contact = sum(Contacts),
+                    Cnt_quote = sum(Quoted),
+                    Cnt_sold = sum(Sold)) %>% 
+          mutate(Variable = by_var,
+                Prec_lead = Cnt_lead / sum(Cnt_lead),
+                Prec_cont = Cnt_contact / sum(Cnt_contact),
+                Prec_quote = Cnt_quote / sum(Cnt_quote),
+                Prec_sold = Cnt_sold / sum(Cnt_sold),
+                Ratio_cont_by_lead = Cnt_contact/Cnt_lead,
+                Ratio_quote_by_lead = Cnt_quote/Cnt_lead,
+                Ratio_sold_by_lead = Cnt_sold/Cnt_lead,
+                Ratio_quote_by_cont = Cnt_quote/Cnt_contact,
+                Ratio_sold_by_quote = Cnt_sold/Cnt_quote)
+}
+
+SUM_BY_VARLIST <- function(df_in, by_var_list ){
+  for (var in by_var_list) {
+    if(exists("df_out") == FALSE) {
+      df_out <- SUM_BY_VAR(df_in, var)
+    }  
+    else {
+      df_out <- rbind(df_out, SUM_BY_VAR(df_in, var))
+    }
+  }  
+  return(df_out)
+}
+
+  #Specify the list variables that are interested for group-by analysis
+y_var_list <- c('Contacts','Post','Quoted','Third_Quoted','Sold','PRNJ_Auto_Sold', 'Teachers_Auto_Sold', 'PRNJ_Home_Sold', 'Third_sOld') 
+ax_var_list <- colnames(sample_data)[substr(colnames(sample_data),1,3) %in% c('ibe', 'VAR','AP0')]
+ax_var_list_num <- ax_var_list[substr(ax_var_list,1,5) == 'miACS'| ax_var_list %in% paste0('VAR_', seq(302,370,1))]
+ax_var_list_cat <- setdiff(ax_var_list, ax_var_list_num)
+cr_var_list <- colnames(sample_data)[substr(colnames(sample_data),1,2) %in% c('V1','V2','V3','V4','V5','V6','V7','V8','V9')]                                                                          
+
+  #Convert all numeric variables into 10 deciles and save them into a new data frame
+sample_data_num <- data.frame(apply(sample_data[,c(ax_var_list_num, cr_var_list)], 2, function(x) x <- cut(x, breaks = unique(quantile(x, seq(0,1,0.1), 
+                                                                                                                                       na.rm = TRUE)), 
+                                                                                                           include.lowest = TRUE)))
+
+  #Check the variable levels before and after the conversion
+data.frame(level_cnt_raw = sapply(sample_data[,c(ax_var_list_num, cr_var_list)], function (x) length(unique(x))), 
+           level_cnt_new = sapply(sample_data_num[,c(ax_var_list_num, cr_var_list)], function(x) length(unique(x))))
+
+  #Combine group-by analysis for different variables into one big table 
+tbl_1w_ax_cat <- SUM_BY_VARLIST(sample_data[,c(y_var_list, ax_var_list_cat)], ax_var_list_cat) #Acxiom's categorical variable
+tbl_1w_ax_num <- SUM_BY_VARLIST(cbind(sample_data[,y_var_list], sample_data_num), ax_var_list_num) #Acxiom's numeric variable
+tbl_1w_cr <- SUM_BY_VARLIST(cbind(sample_data[,y_var_list], sample_data_num), cr_var_list) #Acxiom's numeric variable
+
+  #Create lower bound and upper bound for numeric variables and sort the tables by variable and their lower bound value.
+tbl_1w_ax_num <- cbind(LB = apply(tbl_1w_ax_num[,'Level'], 1, function(x) as.numeric(gsub(c("\\[|\\("),"",unlist(strsplit(x,split = ",", fixed=TRUE))[1]))),
+                       UB = apply(tbl_1w_ax_num[,'Level'], 1, function(x) as.numeric(gsub(c("\\]|\\)"),"",unlist(strsplit(x,split = ",", fixed=TRUE))[2]))),
+                       tbl_1w_ax_num)
+tbl_1w_ax_num <- tbl_1w_ax_num[order(tbl_1w_ax_num$Variable, tbl_1w_ax_num$LB), ]
+
+tbl_1w_cr <- cbind(LB = apply(tbl_1w_cr[,'Level'], 1, function(x) as.numeric(gsub(c("\\[|\\("),"",unlist(strsplit(x,split = ",", fixed=TRUE))[1]))),
+                   UB = apply(tbl_1w_cr[,'Level'], 1, function(x) as.numeric(gsub(c("\\]|\\)"),"",unlist(strsplit(x,split = ",", fixed=TRUE))[2]))),
+                   tbl_1w_cr)
+tbl_1w_cr <- tbl_1w_cr[order(tbl_1w_cr$Variable, tbl_1w_cr$LB), ]
+  
+  #Export group-by summary tables to excel.
+write.xlsx(tbl_1w_ax_cat, file = "//NJREDBF2001/ProductManagement/Advanced Analytics/Projects/2018/Marketing/Leads/SpreadSheet/Results_1way_YZ_V2.xlsx", sheetName = 'Acxiom_CatVar')
+write.xlsx(tbl_1w_ax_num, file = "//NJREDBF2001/ProductManagement/Advanced Analytics/Projects/2018/Marketing/Leads/SpreadSheet/Results_1way_YZ_V2.xlsx", sheetName = 'Acxiom_NumVar', append = TRUE)
+write.xlsx(tbl_1w_cr, file = "//NJREDBF2001/ProductManagement/Advanced Analytics/Projects/2018/Marketing/Leads/SpreadSheet/Results_1way_YZ_V2.xlsx", sheetName = 'Acxiom_CrVar', append = TRUE)
+
+ #Investigate top 20 reponding variables or levels
+tbl_1w_ax_cat %>% filter(between(Prec_lead, 0.02, 0.98)) %>% 
+  arrange(desc(Ratio_cont_by_lead)) %>% head(20) %>% 
+  select (Variable, Level, Prec_lead, Ratio_cont_by_lead, Ratio_quote_by_cont, Ratio_sold_by_quote)
+
+colMeans(sample_data[,c('Contacts','Quoted','Sold')])
+sum(sample_data$Quoted)/sum(sample_data$Contacts)
+sum(sample_data$Sold)/sum(sample_data$Quoted)
+
+tbl_1w_ax_cat %>% filter(Variable == 'VAR_46') %>% 
+  select (Variable, Level, Prec_lead, Ratio_cont_by_lead, Ratio_quote_by_cont, Ratio_sold_by_quote)
+
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Generate new variables: age, household max age, min age, driver count, vehicle count, etc
+
+### create new variables from data
+## age-related new variables
+
+# get drop date varible
+drop_date <- as.Date(proc_data[, "DROP_DATE_1"])
+
+ind_input_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_184"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_184"], "-", max(1, proc_data[-na_index, "VAR_185"]), "-01", sep = ''))
+ind_input_age[na_index] <- NA
+ind_input_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_1st_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_169"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_169"], "-", max(1, proc_data[-na_index, "VAR_170"]), "-01", sep = ''))
+ind_1st_age[na_index] <- NA
+ind_1st_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_2nd_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_177"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_177"], "-", max(1, proc_data[-na_index, "VAR_178"]), "-01", sep = ''))
+ind_2nd_age[na_index] <- NA
+ind_2nd_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_3rd_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_226"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_226"], "-", max(1, proc_data[-na_index, "VAR_227"]), "-01", sep = ''))
+ind_3rd_age[na_index] <- NA
+ind_3rd_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_4th_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_218"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_218"], "-", max(1, proc_data[-na_index, "VAR_219"]), "-01", sep = ''))
+ind_4th_age[na_index] <- NA
+ind_4th_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_5th_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_223"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_223"], "-", max(1, proc_data[-na_index, "VAR_224"]), "-01", sep = ''))
+ind_5th_age[na_index] <- NA
+ind_5th_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+hh_max_age <- apply(cbind(ind_input_age, ind_1st_age, ind_2nd_age, ind_3rd_age, ind_4th_age, ind_5th_age), 1, function(x) 
+{max(x, na.rm = T)})
+hh_max_age[hh_max_age == -Inf] <- NA
+hh_min_age <- apply(cbind(ind_input_age, ind_1st_age, ind_2nd_age, ind_3rd_age, ind_4th_age, ind_5th_age), 1, function(x) 
+{min(x, na.rm = T)})
+hh_min_age[hh_min_age == Inf] <- NA
+
+## vehicle-related new variables
+proc_data[is.na(proc_data[, "VAR_196"]), "VAR_196"] <- NA
+
+# compute age of two vehicles
+# veh_1_age <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 1, 4)) - proc_data[, "VAR_240"]
+# veh_2_age <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 1, 4)) - proc_data[, "VAR_246"]
+# veh_1_age[(veh_1_age == -1) & (!is.na(veh_1_age))] <- 0
+# veh_2_age[(veh_2_age == -1) & (!is.na(veh_2_age))] <- 0
+# hh_max_veh_age <- pmax(veh_1_age, veh_2_age, na.rm = TRUE)
+# hh_min_veh_age <- pmin(veh_1_age, veh_2_age, na.rm = TRUE)
+
+### combine existing variables
+
+## combine auto-related variables
+#  combine Automotive Accessories, Automotive Accessories/Parts, Automotive Parts/Supplies
+# auto_ac_prt <- rep(NA, N)
+# auto_ac_prt <- apply(proc_data[, c("VAR_58", "VAR_59", "VAR_60")], 1, function(x) {ifelse(sum(is.na(x))>=1, 1, NA)})
+
+## create expiration date (renew month - drop month)
+auto_renew_mo <- as.matrix(proc_data[, paste("VAR_", 270:281, sep = '')]) %*% matrix(1:12, 12, 1)
+renew_num <- apply(proc_data[, paste("VAR_", 270:281, sep = '')], 1, sum)
+auto_renew_mo[renew_num != 1] <- NA
+drop_mail_mo <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 6, 7))
+expr_mo <- auto_renew_mo - drop_mail_mo
+expr_mo[(expr_mo >= -12) & (expr_mo < -6) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= -12) & (expr_mo < -6) & (!is.na(expr_mo))] + 12
+expr_mo[(expr_mo >= -6) & (expr_mo < 0) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= -6) & (expr_mo < 0) & (!is.na(expr_mo))] + 6
+expr_mo[(expr_mo >= 6) & (expr_mo < 12) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= 6) & (expr_mo < 12) & (!is.na(expr_mo))] - 6
+
+# save(drop_date, hh_max_age, hh_min_age, hh_max_veh_age, hh_min_veh_age, auto_ac_prt, expr_mo, file = paste(dir, "Data/new_var.RData", 
+#    sep = ''))
+# load(paste(dir, "Data/new_var.RData", sep = ''))
+
+
+tmp <- sample_data %>% select(createdate, VAR_58, VAR_59, VAR_60, VAR_240, VAR_246)%>% 
+  mutate(hh_max_veh_age = ifelse((is.na(VAR_240)&is.na(VAR_246)), NA, pmax(year(createdate) - VAR_240, year(createdate) - VAR_246, na.rm = TRUE)),
+         hh_min_veh_age = ifelse((is.na(VAR_240)&is.na(VAR_246)), NA, pmax(pmin(year(createdate) - VAR_240, year(createdate) - VAR_246, na.rm = TRUE), 0, na.rm = FALSE)),
+         auto_ac_prt = ifelse(is.na(VAR_58)&is.na(VAR_59)&is.na(VAR_60), NA, 1)
+         
+  ) %>% group_by(hh_max_veh_age) %>% count()
+
+
+### prepare all variables that are used for imputation
+
+## Find missing proportion of variables to use
+miss_prop <- apply(proc_data, 2, function(x) {sum(gsub(" ", "", x, fixed = TRUE)=="")})/N
+miss_ind <- which(is.na(miss_prop))
+miss_prop[miss_ind] <- apply(proc_data[, miss_ind], 2, function(x) {sum(is.na(x))})/N
+
+# write.table(cbind(names(miss_prop), round(miss_prop, 6)), paste(dir, "Spreadsheet/miss_prop.csv", sep = ''), row.names = FALSE, 
+#    col.names = TRUE, sep = ",")
+# save(miss_prop, file = paste(dir, "Data/miss_prop.RData", sep = ''))
+# load(paste(dir, "Data/miss_prop.RData", sep = ''))
+
+## Collect all variables for imputation use and put them in a dataset
+proc_data_2 <- cbind(proc_data, hh_max_age, hh_min_age, hh_max_veh_age, hh_min_veh_age, auto_ac_prt, expr_mo)
+
+# write.table(colnames(proc_data_2), paste(dir, "Spreadsheet/proc_variables_03122018.csv", sep = ''), row.names = FALSE, col.names = 
+#   TRUE, sep = ",")
+
+# write.table(cbind(proc_data, hh_max_age, hh_min_age, hh_max_veh_age, hh_min_veh_age, auto_ac_prt, expr_mo), 
+#    paste(dir, "Data/processed_data_032018.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+## Find the effective mail count for each household and expand the data per mail level
+eff_mail_ct <- proc_data_2[, "MAIL_CT"]
+
+ind_gt1 <- which((proc_data_2[, "MAIL_CT"] > 1) & (proc_data_2[, "HIT_DROP_DATE"] != "")) # 16384
+ind_gt1_1 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_1"] != "") # 8119
+ind_gt1_2 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_2"] != "") # 4981
+ind_gt1_3 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_3"] != "") # 1874
+ind_gt1_4 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_4"] != "") # 1066
+ind_gt1_5 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_5"] != "") # 615
+
+vec_gt1_1 <- vec_gt1_2 <- vec_gt1_3 <- vec_gt1_4 <- vec_gt1_5 <- rep(0, length(ind_gt1))
+vec_gt1_1[ind_gt1_1] <- 1
+vec_gt1_2[ind_gt1_2] <- 1
+vec_gt1_3[ind_gt1_3] <- 1
+vec_gt1_4[ind_gt1_4] <- 1
+vec_gt1_5[ind_gt1_5] <- 1
+
+ind_gt1_mat <- as.matrix(cbind(vec_gt1_5, vec_gt1_4, vec_gt1_3, vec_gt1_2, vec_gt1_1))
+
+no_eff_num <- apply(ind_gt1_mat, 1, function(x) { if (sum(x) >= 1) { return(5 - which(x==1)[1]) } else {return(5)} })
+eff_mail_ct[ind_gt1] <- eff_mail_ct[ind_gt1] - no_eff_num
+rep_ind <- rep(1:nrow(proc_data_2), eff_mail_ct)
+# create response
+quote_ind <- rep(rep(0, nrow(proc_data_2)), eff_mail_ct)
+cum_sum <- cumsum(eff_mail_ct)
+row_ind <- which(proc_data_2[, "HIT_DROP_DATE"] != "")
+quote_ind[cum_sum[row_ind]] <- 1
+proc_data_2 <- proc_data_2[rep_ind, ]
+
+
+## Divide the data into three sub-data (categorical, numerical, and other)
+var_data_2 <- read.xlsx(paste(dir, "Spreadsheet/proc_variables_03122018.xlsx", sep = ''), sheetName = "Var_Summary", 
+                        header = TRUE, colClasses = "character")
+cat_ind <- which((paste(var_data_2[, "Type"]) %in% c("Categorical", "Char")) & (var_data_2[, "Process_Select_Indicator"] 
+                                                                                == "Y"))
+num_ind <- which((paste(var_data_2[, "Type"]) %in% c("Numeric", "Ordinal")) & (var_data_2[, "Process_Select_Indicator"] 
+                                                                               == "Y"))
+other_ind <- sort(setdiff(1:nrow(var_data_2), c(cat_ind, num_ind)))
+cat_data <- proc_data_2[, cat_ind]
+num_data <- proc_data_2[, num_ind]
+other_data <- proc_data_2[, other_ind]
+# save(cat_data, num_data, other_data, file = paste(dir, "Data/three_data.RData", sep = ''))
+
+
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Clean and process data on missing values (imputataion on numerical variables and creatation of blank group/level on
+#### categorical/ordinal variables)
+
+### Imputation for missingness
+
+## Numerical variable
+# first imputation strategy --- simple imputation (median)
+num_data_imp <- num_data
+num_miss_ct <- rep(0, ncol(num_data))
+
+ptm <- proc.time()
+for (i in 1:ncol(num_data)) {
+  miss_i_ind <- which(is.na(num_data[, i]))
+  num_miss_ct[i] <- length(miss_i_ind)
+  num_data_imp[miss_i_ind, i] <- median(num_data[-miss_i_ind, i], na.rm = T)
+}
+proc.time() - ptm # 90s
+
+## Categorical variable (treat missing group as one level)
+cat_data_imp <- cat_data
+cat_miss_ct <- rep(0, ncol(cat_data))
+
+ptm <- proc.time()
+for (i in 1:ncol(cat_data)) {
+  cat_data_imp[, i] <- paste(cat_data[, i])
+  miss_i_ind <- which(gsub(" ", "", paste(cat_data[, i]), fixed = TRUE) %in% c("", "NA")) 
+  cat_data_imp[miss_i_ind, i] <- "Blank"
+  cat_miss_ct[i] <- length(miss_i_ind)
+}
+proc.time() - ptm # 117s
+
+# Numerical variable
+# second imputation strategy --- simple imputation (median) # takes too long...
+# library(Hmisc)
+# library(missForest)
+# num_data_imp2 <- missForest(num_data)
+# num_data_imp3 <- mice(num_data)
+
+
+#Check the size of each dataset
+for (itm in ls()) { 
+  print(formatC(c(itm, object.size(get(itm))), 
+                format="d", 
+                big.mark=",", 
+                width=30), 
+        quote=F)
+}
+
+#save.image(file = "F:/NewJersey/YZOU/Online Leads/Data_Before_PCA.rda")
+#load("F:/NewJersey/YZOU/Online Leads/Data_Before_PCA.rda")
+
+#Check the percentage of missing for each numerical variable
+data.frame( freq = sapply(sample_data[,c(ax_var_list_num, cr_var_list)], function (x) sum(is.na(x))),
+            perc = sapply(sample_data[,c(ax_var_list_num, cr_var_list)], function (x) round(sum(is.na(x))/nrow(sample_data[,c(ax_var_list_num, cr_var_list)]), 2))) 
+hist(sapply(sample_data[,c(ax_var_list_num, cr_var_list)], function (x) round(sum(is.na(x))/nrow(sample_data[,c(ax_var_list_num, cr_var_list)]), 2)), breaks = 100, freq = FALSE)
+
+#Impute median for numeric variables
+sample_data_num_imp <- data.frame(sapply(sample_data[,c(ax_var_list_num, cr_var_list)], function(x) ifelse(is.na(x), median(x, na.rm = TRUE), x)))
+data.frame(count_raw = table(sample_data$V66), count_imp =table(sample_data_num_imp$V66) )
+
+# Numerical variable
+# second imputation strategy --- simple imputation (median) # takes too long...
+# library(Hmisc)
+# library(missForest)
+# num_data_imp2 <- missForest(num_data)
+# num_data_imp3 <- mice(num_data)
+
+## Categorical variable (treat missing group as one level)
+cat_data_imp <- cat_data
+cat_miss_ct <- rep(0, ncol(cat_data))
+
+ptm <- proc.time()
+for (i in 1:ncol(cat_data)) {
+  cat_data_imp[, i] <- paste(cat_data[, i])
+  miss_i_ind <- which(gsub(" ", "", paste(cat_data[, i]), fixed = TRUE) %in% c("", "NA")) 
+  cat_data_imp[miss_i_ind, i] <- "Blank"
+  cat_miss_ct[i] <- length(miss_i_ind)
+}
+proc.time() - ptm # 117s
+
+
+# Assign level "Blank" to missing and blank values in Categorical variables 
+sample_data_cat_imp <- sample_data[,ax_var_list_cat]
+sample_data_cat_imp[which(is.na(sample_data_cat_imp) | sample_data_cat_imp == "", arr.ind = TRUE)]  <-  "Blank"
+
+data.frame(sapply(sample_data[,ax_var_list_cat], function(x) sum(x %in% c(NA, ""))))
+data.frame(sapply(sample_data_cat_imp, function(x) sum(x %in% c(NA, ""))))
+
+
+###PCA
+#Perform PCA on numeric variables
+pr.out = prcomp(sample_data_num_imp, scale = TRUE)
+names(pr.out) #Check the output 
+
+#Check the mean and std for each variable before scaling
+data.frame(round(colMeans(sample_data_num_imp),1),round(pr.out$center,1), round(pr.out$scale,1))
+
+biplot(pr.out, scale = 0) #plot the first two principle components
+
+dim(pr.out$x) #Dimension of principle component score vectors
+pr.out$rotation #loadings
+pr.out$sdev #std for each principle component
+round(pr.out$sdev^2,1) #variance for each principle component
+
+#Compute the proportion of variance (PVE) explained by each principle component and cumulative PVE
+pve <- pr.out$sdev^2/sum(pr.out$sdev^2)
+pve_cum <- cumsum(pve)
+
+#plot the PVE and cumulative PVE
+plot(pve , xlab="Principal Component", ylab="Proportion of Variance Explained", ylim=c(0,0.25) ,type= 'b')
+plot(pve_cum, xlab="Principal Component", ylab="Cumulative proportion of Variance Explained", ylim=c(0,1) ,type= 'b')
+
+###K-means clustering
+cls_km = kmeans(pr.out$rotation[,1:10], 10, nstart = 20)
+
+data.frame(cls_km$cluster[order(cls_km$cluster)])
+
+pairs(sample_data_num_imp[1:1000,which(cls_km$cluster ==1)])
+cor(sample_data_num_imp[1:1000,which(cls_km$cluster ==1)])
+
+###Hierachical clustering
+cls_h.complete <- hclust(dist(pr.out$rotation[,1:10], method = 'euclidean'), method = "complete")
+cls_h.average  <- hclust(dist(pr.out$rotation[,1:10], method = 'euclidean'), method = "average")
+cls_h.single   <- hclust(dist(pr.out$rotation[,1:10], method = 'euclidean'), method = "single")
+
+cls_h10.complete <- cutree(cls_h.complete, 10)
+
+tmp <- data.frame(cls_km = cls_km$cluster, cls_h10 = cls_h10.complete)
+plot(tmp$cls_km, tmp$cls_h10)
+
+names(cls_h.complete)
+cls_h.complete$height
+
+par(mfrow = c(1,3))
+plot(cls_h.complete ,main =" Complete Linkage ", xlab="", sub ="", cex =.9)
+plot(cls_h.average , main =" Average Linkage ", xlab="", sub ="", cex =.9)
+plot(cls_h.single , main=" Single Linkage ", xlab="", sub ="",  cex =.9)
+par(mfrow = c(1,1))
+
+
+### Logistic regression model
+
+
+
+
+
+
