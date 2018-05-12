@@ -1,0 +1,1122 @@
+#Yaotian's online leads modeling
+#Credit has to be given to my colleague Min Wang for his intensive amount of time devoted to develop the direct mail model
+library(dplyr)
+library(rJava)
+library(xlsxjars)
+library(xlsx)
+
+
+#Load Acxiom data
+load("F:/NewJersey/YZOU/Online Leads/DirectMail_Export2_OUT_SELECTED.RData")
+
+rawdata <- subdata
+rm(subdata)
+gc()
+
+#str(rawdata, list.len = ncol(rawdata))
+typeof(rawdata)
+glimpse(rawdata)
+head(rawdata)
+
+#Assign column names to Acxiom data
+colnames(rawdata) <- paste("VAR_", 1:ncol(rawdata), sep = '')
+
+#Load zipcode + 4 level credit data
+load("F:/NewJersey/YZOU/Online Leads/PlymouthAH00262232_PA_NJ.RData")
+glimpse(credit_data)
+
+#Merge Acxiom data with credit data
+merge_data <- left_join(rawdata, credit_data, by = c("VAR_5" = "V1", "VAR_6" = "V2"))
+
+rm(credit_data)
+gc()
+
+### read targeted variable (quote/sold) data 
+load("F:/NewJersey/YZOU/Online Leads/Acxiom_output_sub.RData")
+glimpse(quote_data)
+
+merge_data[, "VAR_1"] <- paste(merge_data[, "VAR_1"])  #Factor to string?
+merge_data[, "VAR_3"] <- paste(merge_data[, "VAR_3"])
+merge_data[, "VAR_4"] <- paste(merge_data[, "VAR_4"])
+quote_data[, "FIRST_NAME"] <- paste(quote_data[, "FIRST_NAME"])
+quote_data[, "LAST_NAME"] <- paste(quote_data[, "LAST_NAME"])
+quote_data[, "ADDRESS_12"] <- paste(quote_data[, "ADDRESS_12"])
+
+all_data <- inner_join(merge_data, quote_data, by = c("VAR_1" = "FIRST_NAME", "VAR_3" = "LAST_NAME", "VAR_4" = "ADDRESS_12", "VAR_5" = "ZIPCODE5")) 
+
+### use variables that are manually selected
+var_data <- read.xlsx(paste("F:/NewJersey/YZOU/Online Leads/all_variables_03072018.xlsx"), sheetName = "Var_Summary", header = TRUE, colClasses = "character")
+keep_var <- paste(var_data[paste(var_data[, "Model_Select_Indicator"]) == "Y", "Label"]) # variables selected for model
+info_var <- c("VAR_1", "VAR_3", "VAR_4", "VAR_5", "VAR_6", "VAR_9") # variables for individual information
+use_var <- c(info_var, keep_var)
+
+
+# save.image(paste(dir, "Data/Direct_Mail_Model_02122018.RData", sep = ''))
+# dir <- "//NE7SASWPN02/NewJersey/MWang/2018 Projects/DM Model/"
+# load(paste(dir, "Data/Direct_Mail_Model_02122018.RData", sep = ''))
+
+################ Random sample 250K to mimic online leads data#########################
+all_data <- all_data[sample(nrow(all_data), 250000),]
+#save(all_data, file = 'F:/NewJersey/YZOU/Online Leads/all_data.RData')
+#load('F:/NewJersey/YZOU/Online Leads/all_data.RData')
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Generate new variables: age, household max age, min age, driver count, vehicle count, etc
+
+### select variables for model use
+proc_data <- all_data[, use_var]
+N <- nrow(proc_data)
+# remove data to release memory space
+rm(all_data)
+rm(merge_data)
+rm(rawdata)
+rm(quote_data)
+gc()
+
+### create new variables from data
+## age-related new variables
+
+# get drop date varible
+drop_date <- as.Date(proc_data[, "DROP_DATE_1"])
+
+ind_input_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_184"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_184"], "-", max(1, proc_data[-na_index, "VAR_185"]), "-01", sep = ''))
+ind_input_age[na_index] <- NA
+ind_input_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_1st_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_169"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_169"], "-", max(1, proc_data[-na_index, "VAR_170"]), "-01", sep = ''))
+ind_1st_age[na_index] <- NA
+ind_1st_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_2nd_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_177"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_177"], "-", max(1, proc_data[-na_index, "VAR_178"]), "-01", sep = ''))
+ind_2nd_age[na_index] <- NA
+ind_2nd_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_3rd_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_226"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_226"], "-", max(1, proc_data[-na_index, "VAR_227"]), "-01", sep = ''))
+ind_3rd_age[na_index] <- NA
+ind_3rd_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_4th_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_218"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_218"], "-", max(1, proc_data[-na_index, "VAR_219"]), "-01", sep = ''))
+ind_4th_age[na_index] <- NA
+ind_4th_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+ind_5th_age <- rep(0, N)
+na_index <- which(is.na(proc_data[, "VAR_223"]))
+birth_date <- as.Date(paste(proc_data[-na_index, "VAR_223"], "-", max(1, proc_data[-na_index, "VAR_224"]), "-01", sep = ''))
+ind_5th_age[na_index] <- NA
+ind_5th_age[-na_index] <- as.numeric(difftime(drop_date[-na_index], birth_date, units = "days"))/365.25
+
+hh_max_age <- apply(cbind(ind_input_age, ind_1st_age, ind_2nd_age, ind_3rd_age, ind_4th_age, ind_5th_age), 1, function(x) 
+{max(x, na.rm = T)})
+hh_max_age[hh_max_age == -Inf] <- NA
+hh_min_age <- apply(cbind(ind_input_age, ind_1st_age, ind_2nd_age, ind_3rd_age, ind_4th_age, ind_5th_age), 1, function(x) 
+{min(x, na.rm = T)})
+hh_min_age[hh_min_age == Inf] <- NA
+
+## vehicle-related new variables
+proc_data[is.na(proc_data[, "VAR_196"]), "VAR_196"] <- NA
+
+# compute age of two vehicles
+veh_1_age <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 1, 4)) - proc_data[, "VAR_240"]
+veh_2_age <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 1, 4)) - proc_data[, "VAR_246"]
+veh_1_age[(veh_1_age == -1) & (!is.na(veh_1_age))] <- 0
+veh_2_age[(veh_2_age == -1) & (!is.na(veh_2_age))] <- 0
+hh_max_veh_age <- pmax(veh_1_age, veh_2_age, na.rm = TRUE)
+hh_min_veh_age <- pmin(veh_1_age, veh_2_age, na.rm = TRUE)
+
+### combine existing variables
+
+## combine auto-related variables
+#  combine Automotive Accessories, Automotive Accessories/Parts, Automotive Parts/Supplies
+auto_ac_prt <- rep(NA, N)
+auto_ac_prt <- apply(proc_data[, c("VAR_58", "VAR_59", "VAR_60")], 1, function(x) {ifelse(sum(is.na(x))>=1, 1, NA)}) #??? Why map NA to 1, other to NA?
+
+## create expiration date (renew month - drop month)
+auto_renew_mo <- as.matrix(proc_data[, paste("VAR_", 270:281, sep = '')]) %*% matrix(1:12, 12, 1)
+renew_num <- apply(proc_data[, paste("VAR_", 270:281, sep = '')], 1, sum)
+auto_renew_mo[renew_num != 1] <- NA
+
+drop_mail_mo <- as.numeric(substr(proc_data[, "DROP_DATE_1"], 6, 7))
+expr_mo <- auto_renew_mo - drop_mail_mo
+expr_mo[(expr_mo >= -12) & (expr_mo < -6) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= -12) & (expr_mo < -6) & (!is.na(expr_mo))] + 12
+expr_mo[(expr_mo >= -6) & (expr_mo < 0) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= -6) & (expr_mo < 0) & (!is.na(expr_mo))] + 6
+expr_mo[(expr_mo >= 6) & (expr_mo < 12) & (!is.na(expr_mo))] <- expr_mo[(expr_mo >= 6) & (expr_mo < 12) & (!is.na(expr_mo))] - 6
+
+
+### prepare all variables that are used for imputation
+
+## Find missing proportion of variables to use
+miss_prop <- apply(proc_data, 2, function(x) {sum(gsub(" ", "", x, fixed = TRUE)=="")})/N   #Percentage for columns that has blank values
+miss_ind <- which(is.na(miss_prop)) 
+miss_prop[miss_ind] <- apply(proc_data[, miss_ind], 2, function(x) {sum(is.na(x))})/N    #Percentage for columns that has NA values
+
+# write.table(cbind(names(miss_prop), round(miss_prop, 6)), paste(dir, "Spreadsheet/miss_prop.csv", sep = ''), row.names = FALSE, 
+#    col.names = TRUE, sep = ",")
+# save(miss_prop, file = paste(dir, "Data/miss_prop.RData", sep = ''))
+# load(paste(dir, "Data/miss_prop.RData", sep = ''))
+
+## Collect all variables for imputation use and put them in a dataset
+proc_data_2 <- cbind(proc_data, hh_max_age, hh_min_age, hh_max_veh_age, hh_min_veh_age, auto_ac_prt, expr_mo)
+
+# write.table(colnames(proc_data_2), paste(dir, "Spreadsheet/proc_variables_03122018.csv", sep = ''), row.names = FALSE, col.names = 
+#   TRUE, sep = ",")
+
+# write.table(cbind(proc_data, hh_max_age, hh_min_age, hh_max_veh_age, hh_min_veh_age, auto_ac_prt, expr_mo), 
+#    paste(dir, "Data/processed_data_032018.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+## Find the effective mail count for each household and expand the data per mail level
+eff_mail_ct <- proc_data_2[, "MAIL_CT"]
+
+ind_gt1 <- which((proc_data_2[, "MAIL_CT"] > 1) & (proc_data_2[, "HIT_DROP_DATE"] != "")) # 16384
+ind_gt1_1 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_1"] != "") # 8119
+ind_gt1_2 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_2"] != "") # 4981
+ind_gt1_3 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_3"] != "") # 1874
+ind_gt1_4 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_4"] != "") # 1066
+ind_gt1_5 <- which(proc_data_2[ind_gt1, "FRST_RTD_DT_5"] != "") # 615
+
+vec_gt1_1 <- vec_gt1_2 <- vec_gt1_3 <- vec_gt1_4 <- vec_gt1_5 <- rep(0, length(ind_gt1))
+vec_gt1_1[ind_gt1_1] <- 1
+vec_gt1_2[ind_gt1_2] <- 1
+vec_gt1_3[ind_gt1_3] <- 1
+vec_gt1_4[ind_gt1_4] <- 1
+vec_gt1_5[ind_gt1_5] <- 1
+
+ind_gt1_mat <- as.matrix(cbind(vec_gt1_5, vec_gt1_4, vec_gt1_3, vec_gt1_2, vec_gt1_1))
+
+no_eff_num <- apply(ind_gt1_mat, 1, function(x) { if (sum(x) >= 1) { return(5 - which(x==1)[1]) } else {return(5)} })
+eff_mail_ct[ind_gt1] <- eff_mail_ct[ind_gt1] - no_eff_num
+rep_ind <- rep(1:nrow(proc_data_2), eff_mail_ct)
+
+# create response
+quote_ind <- rep(rep(0, nrow(proc_data_2)), eff_mail_ct)
+cum_sum <- cumsum(eff_mail_ct)
+row_ind <- which(proc_data_2[, "HIT_DROP_DATE"] != "")
+quote_ind[cum_sum[row_ind]] <- 1
+proc_data_2 <- proc_data_2[rep_ind, ]
+
+
+## Divide the data into three sub-data (categorical, numerical, and other)
+var_data_2 <- read.xlsx("F:/NewJersey/YZOU/Online Leads/proc_variables_03122018.xlsx", sheetName = "Var_Summary", header = TRUE, colClasses = "character")
+cat_ind <- which((paste(var_data_2[, "Type"]) %in% c("Categorical", "Char")) & (var_data_2[, "Process_Select_Indicator"]== "Y"))
+num_ind <- which((paste(var_data_2[, "Type"]) %in% c("Numeric", "Ordinal")) & (var_data_2[, "Process_Select_Indicator"] == "Y"))
+other_ind <- sort(setdiff(1:nrow(var_data_2), c(cat_ind, num_ind)))
+cat_data <- proc_data_2[, cat_ind]
+num_data <- proc_data_2[, num_ind]
+other_data <- proc_data_2[, other_ind]
+# save(cat_data, num_data, other_data, file = paste(dir, "Data/three_data.RData", sep = ''))
+
+
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Clean and process data on missing values (imputataion on numerical variables and creatation of blank group/level on
+#### categorical/ordinal variables)
+
+### Imputation for missingness
+
+## Numerical variable
+# first imputation strategy --- simple imputation (median)
+num_data_imp <- num_data
+num_miss_ct <- rep(0, ncol(num_data))
+
+ptm <- proc.time()
+for (i in 1:ncol(num_data)) {
+  miss_i_ind <- which(is.na(num_data[, i]))
+  num_miss_ct[i] <- length(miss_i_ind)
+  num_data_imp[miss_i_ind, i] <- median(num_data[-miss_i_ind, i], na.rm = T)
+}
+proc.time() - ptm # 90s
+
+## Categorical variable (treat missing group as one level)
+cat_data_imp <- cat_data
+cat_miss_ct <- rep(0, ncol(cat_data))
+
+ptm <- proc.time()
+for (i in 1:ncol(cat_data)) {
+  cat_data_imp[, i] <- paste(cat_data[, i])
+  miss_i_ind <- which(gsub(" ", "", paste(cat_data[, i]), fixed = TRUE) %in% c("", "NA")) 
+  cat_data_imp[miss_i_ind, i] <- "Blank"
+  cat_miss_ct[i] <- length(miss_i_ind)
+}
+proc.time() - ptm # 117s
+
+# Numerical variable
+# second imputation strategy --- simple imputation (median) # takes too long...
+# library(Hmisc)
+# library(missForest)
+# num_data_imp2 <- missForest(num_data)
+# num_data_imp3 <- mice(num_data)
+
+
+#Check the size of each dataset
+for (itm in ls()) { 
+  print(formatC(c(itm, object.size(get(itm))), 
+                format="d", 
+                big.mark=",", 
+                width=30), 
+        quote=F)
+}
+
+#save.image(file = "F:/NewJersey/YZOU/Online Leads/Data_Before_PCA.rda")
+#load("F:/NewJersey/YZOU/Online Leads/Data_Before_PCA.rda")
+
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Dimension reduction via PCA and correspondence analysis
+
+### Numerical variables reduction
+## load package for PCA analysis
+
+# install.packages('slam')
+# install.packages("factoextra")
+
+library(PCDimension)
+library(slam)
+library(Thresher)
+library(factoextra)
+
+## select the optimal number of PCs to keep
+
+# use Auer-Gervini model
+ptm <- proc.time()
+spca <- SamplePCA(t(scale(num_data_imp)))
+proc.time() - ptm # 1397 seconds
+ag.obj <- AuerGervini(spca)
+f <- makeAgCpmFun("Exponential")
+agfuns <- list(twice = agDimTwiceMean, specc = agDimSpectral, km = agDimKmeans, km3 = agDimKmeans3,
+               tt = agDimTtest, tt2 = agDimTtest2, cpt = agDimCPT, cpm = f)
+compareAgDimMethods(ag.obj, agfuns) 
+# save(spca, ag.obj, file = paste(dir, "Data/pca_ag.RData", sep = ''))
+
+# look at the results graphically
+plot(ag.obj, agfuns)
+# twice specc    km   km3    tt   tt2   cpt   cpm # scaled
+#    5     4     2     2    24     2     2    24
+
+## cluster the variables after projecting them onto the PC space
+
+# use criterion twicemean
+ptm <- proc.time()
+thresh_fit <- Thresher(as.matrix(num_data_imp), method = "auer.gervini", scale = TRUE, agfun = agfuns[[1]])
+proc.time() - ptm # 1673 seconds
+thresh_fit@pcdim # 5
+colnames(num_data_imp)[thresh_fit@delta <= 0.3]
+plot(thresh_fit)
+
+# save(thresh_fit, file = paste(dir, "Data/thresher.RData", sep = ''))
+# load(paste(dir, "Data/thresher.RData", sep = ''))
+
+## clustering projections of variables
+proj_var_mat <- thresh_fit@loadings[, 1:thresh_fit@pcdim]
+
+# normalize the projections of the variables
+var_norm <- apply(proj_var_mat, 1, function(x) sqrt(sum(x^2)))
+proj_var_mat <- sweep(proj_var_mat, 1, var_norm, "/")
+
+# plot of variable projections 
+png(file = "F:/NewJersey/YZOU/Online Leads/pca_num.png", width = 2*512, height = 2*512, pointsize = 22)
+par(mfrow = c(4, 4), mar = c(4, 4, 1, 1))
+for (i in 1:4) {
+  for (j in 2:5) {
+    if (j >= (i+1)) {
+      plot(proj_var_mat[, c(i, j)], cex = 0.8, pch = 16, xlab = paste("PC", i, sep = ''), ylab = paste("PC", j, sep = ''), 
+           main = " ")
+      abline(h = 0, lty = 3)
+      abline(v = 0, lty = 3)
+    } else { plot(0, xaxt = 'n', yaxt = 'n', bty = 'n', pch = '', ylab = '', xlab = '') }
+  }
+}
+dev.off()
+
+outliers <- colnames(num_data_imp)[thresh_fit@delta <= 0.3]
+good_vars <- colnames(num_data_imp)[thresh_fit@delta > 0.3]
+
+kmean_fit <- kmeans(proj_var_mat[good_vars, ], 11, nstart = 25) 
+hclust_fit <- hclust(distanceMatrix(t(proj_var_mat[good_vars, ]), "pearson"), "ward.D2")
+
+png(file = "F:/NewJersey/YZOU/Online Leads/hclust_num.png", width = 6*512, height = 4*512, pointsize = 22)
+plot(hclust_fit, cex = 0.5)
+dev.off()
+
+hclust_cl <- cutree(hclust_fit, k = 11)
+hclust_mat <- data.frame(cbind(Variable = c(good_vars, outliers), Cluster_Label = c(as.numeric(hclust_cl), rep(0, length(outliers)))))
+hclust_mat[, "Variable"] <- paste(hclust_mat[, "Variable"])
+var_data_2[, "Label"] <- paste(var_data_2[, "Label"])
+hclust_mat <- left_join(data.frame(hclust_mat), var_data_2, by = c("Variable" = "Label"))
+
+# write.table(hclust_mat, paste(dir, "/Spreadsheet/pca_hclust_num.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+## look further at the response rate for variables within each cluster
+
+p_vec <- rep(0, nrow(hclust_mat))
+for (i in 1:nrow(hclust_mat)) {
+  var_i <- paste(hclust_mat[i, "Variable"])
+  pval <- cor.test(num_data_imp[, var_i], quote_ind)$p.value
+  p_vec[i] <- round(pval, 6)
+}
+
+hclust_mat <- cbind(hclust_mat, p_vec)
+# p-value adjustment
+p_vec_all <- p.adjust(p_vec, method = "BH", n = length(p_vec))
+hclust_mat <- cbind(hclust_mat, p_vec_all)
+
+# write.table(hclust_mat, paste(dir, "/Spreadsheet/pca_hclust_num.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+
+### Categorical variables reduction
+
+## implement information value analysis for each variable (information value analysis (measure how well a variable is able to distinguish 
+## between a binary response (e.g. "good" versus "bad") in the target variable; replacement of chi-square statistic)
+## For more, refer to https://www.mwsug.org/proceedings/2013/AA/MWSUG-2013-AA14.pdf
+
+library(InformationValue)
+
+iv_vec <- rep(0, ncol(cat_data_imp))
+ptm <- proc.time()
+for (i in 1:ncol(cat_data_imp)) {
+  iv_vec[i] <- as.numeric(IV(as.factor(cat_data_imp[, i]), quote_ind))
+}
+proc.time() - ptm
+
+iv_vec <- round(iv_vec, 5)
+iv_mat <- data.frame(cbind(Variable = colnames(cat_data_imp), Info_Value = iv_vec))
+iv_mat_sort <- iv_mat[order(iv_vec), ]
+iv_mat_sort[, "Info_Value"] <- as.numeric(paste(iv_mat_sort[, "Info_Value"]))
+
+cat_var_sig <- paste(iv_mat_sort[iv_mat_sort[, "Info_Value"] > 0.02, "Variable"])
+cat_var_nosig <- paste(iv_mat_sort[iv_mat_sort[, "Info_Value"] <= 0.02, "Variable"])
+
+## clustering (Hierarchical clustering, etc. - distance/similarity measure based on pearson/spearman 
+## correlation/entropy based information)
+
+# compute the association between variables based on Cramer's V statistic
+cv.test = function(x,y) {
+  CV = sqrt(chisq.test(x, y, correct = FALSE, simulate.p.value = TRUE)$statistic /
+              (length(x) * (min(length(unique(x)), length(unique(y))) - 1)))
+  return(as.numeric(CV))
+}
+
+cat_cv_mat <- matrix(0, length(cat_var_sig), length(cat_var_sig))
+ptm <- proc.time()
+for (i in 1:(length(cat_var_sig) - 1)) {
+  for (j in (i+1):length(cat_var_sig)) {
+    cat_cv_mat[i, j] <- cat_cv_mat[j, i] <- cv.test(cat_data_imp[, cat_var_sig[i]], cat_data_imp[, cat_var_sig[j]])
+  }
+}
+proc.time() - ptm # 48402s=13.45hours
+
+# save(cat_cv_mat, file = "F:/NewJersey/YZOU/Online Leads/cat_cv_mat.RData")
+# load("F:/NewJersey/YZOU/Online Leads/cat_cv_mat.RData")
+
+colnames(cat_cv_mat) <- rownames(cat_cv_mat) <- cat_var_sig
+cat_cv_mat <- 1 - cat_cv_mat
+diag(cat_cv_mat) <- 0
+heatmap(cat_cv_mat)
+
+library(gplots)
+heatmap.2(cat_cv_mat, dendrogram = 'none', Rowv = TRUE, Colv = TRUE, trace = 'none')
+
+# cluster of variables from hclust based on cramer's V statistics
+hclust_fit_2 <- hclust(as.dist(cat_cv_mat), "ward.D2")
+
+png(file = "F:/NewJersey/YZOU/Online Leads/hclust_cat.png", width = 2*512, height = 1.5*512, pointsize = 24)
+plot(hclust_fit_2, cex = 0.6)
+dev.off()
+
+hclust_cl_2 <- cutree(hclust_fit_2, k = 5)
+hclust_mat_2 <- cbind(Variable = c(names(hclust_cl_2), cat_var_nosig), Cluster_Label = c(as.numeric(hclust_cl_2), rep(NA, length(cat_var_nosig))))
+hclust_mat_2 <- data.frame(hclust_mat_2)
+hclust_mat_2[, "Variable"] <- paste(hclust_mat_2[, "Variable"])
+hclust_mat_2 <- left_join(data.frame(hclust_mat_2), var_data_2, by = c("Variable" = "Label"))
+iv_mat[, "Variable"] <- paste(iv_mat[, "Variable"])
+hclust_mat_2 <- left_join(hclust_mat_2, iv_mat, by = c("Variable" = "Variable"))
+
+# write.table(hclust_mat_2, paste(dir, "/Spreadsheet/pca_hclust_cat.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+
+
+### perform one way analysis to bin the numeric/categorical variables
+
+## analyze 48 numerical variables 
+num_sel_var_data <- read.xlsx(file = "F:/NewJersey/YZOU/Online Leads/exploratory_analysis_03262018.xlsx", sheetName = "Numerical_Variable", 
+                              header = TRUE, colClasses = "character")
+num_sel_var <- paste(num_sel_var_data[paste(num_sel_var_data[, "Final_Select_FLG"]) == "Y", "Variable"])
+
+# clean data for selected variables (capping, can also use criteria: >= (75 percentile + 1.5 IQR) = 95 percentile.)
+num_data_imp[num_data_imp[, "V7"] >= 0.4, "V7"] <- 0.4
+num_data_imp[num_data_imp[, "V16"] >= 0.08, "V16"] <- 0.08
+num_data_imp[num_data_imp[, "V38"] >= 500, "V38"] <- 500
+num_data_imp[num_data_imp[, "V48"] >= 1000000, "V48"] <- 1000000
+num_data_imp[num_data_imp[, "V60"] >= 0.8, "V60"] <- 0.8
+num_data_imp[num_data_imp[, "V66"] >= 0.1, "V66"] <- 0.1
+num_data_imp[num_data_imp[, "V69"] >= 0.2, "V69"] <- 0.2
+num_data_imp[num_data_imp[, "V184"] >= 0.5, "V184"] <- 0.5
+num_data_imp[num_data_imp[, "V195"] >= 0.2, "V195"] <- 0.2
+num_data_imp[num_data_imp[, "V201"] >= 80000, "V201"] <- 80000
+num_data_imp[num_data_imp[, "V206"] >= 1, "V206"] <- 1
+num_data_imp[num_data_imp[, "V214"] >= 0.2, "V214"] <- 0.2
+num_data_imp[num_data_imp[, "V222"] >= 0.05, "V222"] <- 0.05
+num_data_imp[num_data_imp[, "V237"] >= 100, "V237"] <- 100
+num_data_imp[num_data_imp[, "V241"] >= 0.5, "V241"] <- 0.5
+num_data_imp[num_data_imp[, "V250"] >= 0.05, "V250"] <- 0.05
+num_data_imp[num_data_imp[, "V262"] >= 50000, "V262"] <- 50000
+num_data_imp[num_data_imp[, "V267"] >= 150, "V267"] <- 150
+num_data_imp[num_data_imp[, "V272"] >= 1.5, "V272"] <- 1.5
+num_data_imp[num_data_imp[, "V275"] >= 2000, "V275"] <- 2000
+num_data_imp[num_data_imp[, "V302"] >= 1000000, "V302"] <- 1000000
+num_data_imp[num_data_imp[, "V311"] >= 1.5, "V311"] <- 1.5
+
+# investigate the distribution and response rate of each variable
+ptm <- proc.time()
+num_summary <- NULL
+num_sel_var_mt50 <- NULL
+for (i in 1:length(num_sel_var)) {
+  levels_i <- sort(unique(num_data_imp[, num_sel_var[i]]))
+  num_len_i <- length(levels_i)
+  if (num_len_i <= 50) {
+    for (j in 1:num_len_i) {
+      num_i_j_0 <- sum(quote_ind[(num_data_imp[, num_sel_var[i]] == levels_i[j]) & (!is.na(num_data[, num_sel_var[i]]))] == 0)
+      num_i_j_1 <- sum(quote_ind[(num_data_imp[, num_sel_var[i]] == levels_i[j]) & (!is.na(num_data[, num_sel_var[i]]))] == 1)
+      num_i_j <- num_i_j_0 + num_i_j_1
+      num_i_j_rate <- round(num_i_j_1/num_i_j, 5)
+      num_i_j_vec <- c(num_sel_var[i], levels_i[j], num_i_j, num_i_j_0, num_i_j_1, num_i_j_rate)
+      num_summary <- rbind(num_summary, t(num_i_j_vec))
+    }
+    if (sum(is.na(num_data[, num_sel_var[i]])) > 0) {
+      num_i_j_0 <- sum(quote_ind[is.na(num_data[, num_sel_var[i]])] == 0)
+      num_i_j_1 <- sum(quote_ind[is.na(num_data[, num_sel_var[i]])] == 1)
+      num_i_j <- num_i_j_0 + num_i_j_1
+      num_i_j_rate <- round(num_i_j_1/num_i_j, 5)
+      num_i_j_vec <- c(num_sel_var[i], "NA", num_i_j, num_i_j_0, num_i_j_1, num_i_j_rate)
+      num_summary <- rbind(num_summary, t(num_i_j_vec))
+    }        
+  } else {
+    num_sel_var_mt50 <- c(num_sel_var_mt50, num_sel_var[i])
+  }
+}
+proc.time() - ptm # 20s
+
+colnames(num_summary) <- c("Variable", "Level", "Count", "No_Quote", "Quoted", "Response_Rate")
+num_summary <- data.frame(num_summary)
+num_summary[, "Variable"] <- paste(num_summary[, "Variable"])
+num_sel_var_data[, "Variable"] <- paste(num_sel_var_data[, "Variable"])
+num_summary_merge <- left_join(num_summary, num_sel_var_data[, c("Variable", "Element", "ElementNumber", "Description")], by = c(
+  "Variable" = "Variable"))
+
+write.table(num_summary_merge, "F:/NewJersey/YZOU/Online Leads/num_var_summary.csv", row.names = FALSE, col.names = TRUE, sep = ",")
+
+# look at histogram of variable with many distinct values
+for (i in 1:length(num_sel_var_mt50)) {
+  png(file = paste("F:/NewJersey/YZOU/Online Leads/", num_sel_var_mt50[i], ".png", sep = ''), width = 2*512, height = 2*512)
+  indi <- which(num_sel_var_data[, "Variable"] == num_sel_var_mt50[i])
+  hist(num_data_imp[, num_sel_var_mt50[i]], breaks = 100, xlab = paste(num_sel_var_data[indi, "Element"]), ylab = "Count/Percentage", 
+       main = paste("Histogram of Variable ", num_sel_var_mt50[i], sep = ''))
+  abline(v = median(num_data_imp[, num_sel_var_mt50[i]]), lty = 2, col = 2)
+  dev.off()
+}
+
+# look at buckets with equal band width for each variable
+M <- 100
+ptm <- proc.time()
+num_summary_2 <- NULL
+for (i in 1:length(num_sel_var_mt50)) {
+  var_data_i <- num_data_imp[, num_sel_var_mt50[i]]
+  var_raw_data_i <- num_data[, num_sel_var_mt50[i]]
+  vec_i <- seq(min(var_data_i) - 0.0001, max(var_data_i), length.out = M + 1)
+  for (j in 1:M) {
+    ind_i_j <- which((var_data_i > vec_i[j]) & (var_data_i <= vec_i[j+1]) & (!is.na(var_raw_data_i)))
+    num_i_j_0 <- sum(quote_ind[ind_i_j] == 0)
+    num_i_j_1 <- sum(quote_ind[ind_i_j] == 1)
+    num_i_j <- num_i_j_0 + num_i_j_1
+    num_i_j_rate <- round(num_i_j_1/num_i_j, 5)
+    level_i_j_nm <- paste(round(vec_i[j], 4), "-", round(vec_i[j+1], 4), sep = '')
+    num_i_j_vec <- c(num_sel_var_mt50[i], level_i_j_nm, num_i_j, num_i_j_0, num_i_j_1, num_i_j_rate)
+    num_summary_2 <- rbind(num_summary_2, t(num_i_j_vec))
+  } 
+  if (sum(is.na(var_raw_data_i)) > 0) {
+    ind_i <- which(is.na(var_raw_data_i))
+    num_i_j_0 <- sum(quote_ind[ind_i] == 0)
+    num_i_j_1 <- sum(quote_ind[ind_i] == 1)
+    num_i_j <- num_i_j_0 + num_i_j_1
+    num_i_j_rate <- round(num_i_j_1/num_i_j, 5)
+    num_i_j_vec <- c(num_sel_var_mt50[i], "NA", num_i_j, num_i_j_0, num_i_j_1, num_i_j_rate)
+    num_summary_2 <- rbind(num_summary_2, t(num_i_j_vec))
+  } 
+}
+proc.time() - ptm # 221s
+
+colnames(num_summary_2) <- c("Variable", "Level", "Count", "No_Quote", "Quoted", "Response_Rate")
+num_summary_2 <- data.frame(num_summary_2)
+num_summary_2[, "Variable"] <- paste(num_summary_2[, "Variable"])
+num_summary_2_merge <- left_join(num_summary_2, num_sel_var_data[, c("Variable", "Element", "ElementNumber", "Description")], by = c(
+  "Variable" = "Variable"))
+
+write.table(num_summary_2_merge, "F:/NewJersey/YZOU/Online Leads/num_var_summary_2.csv", row.names = FALSE, col.names = TRUE, sep = ",")
+
+
+## analyze 18 categorical variables 
+cat_sel_var_data <- read.xlsx("F:/NewJersey/YZOU/Online Leads/exploratory_analysis_03262018.xlsx", sheetName = "Categorical_Variable", 
+                              header = TRUE, colClasses = "character")
+cat_sel_var <- paste(cat_sel_var_data[paste(cat_sel_var_data[, "Final_Select_FLG"]) == "Y", "Variable"])
+
+# investigate the distribution and response rate of each variable
+ptm <- proc.time()
+cat_summary <- NULL
+for (i in 1:length(cat_sel_var)) {
+  levels_i <- sort(unique(cat_data_imp[, cat_sel_var[i]]))
+  cat_len_i <- length(levels_i)
+  for (j in 1:cat_len_i) {
+    cat_i_j_0 <- sum(quote_ind[cat_data_imp[, cat_sel_var[i]] == levels_i[j]] == 0)
+    cat_i_j_1 <- sum(quote_ind[cat_data_imp[, cat_sel_var[i]] == levels_i[j]] == 1)
+    cat_i_j <- cat_i_j_0 + cat_i_j_1
+    cat_i_j_rate <- round(cat_i_j_1/cat_i_j, 5)
+    cat_i_j_vec <- c(cat_sel_var[i], levels_i[j], cat_i_j, cat_i_j_0, cat_i_j_1, cat_i_j_rate)
+    cat_summary <- rbind(cat_summary, t(cat_i_j_vec))
+  }
+}
+proc.time() - ptm # 17s
+
+colnames(cat_summary) <- c("Variable", "Level", "Count", "No_Quote", "Quoted", "Response_Rate")
+cat_summary <- data.frame(cat_summary)
+cat_summary[, "Variable"] <- paste(cat_summary[, "Variable"])
+cat_sel_var_data[, "Variable"] <- paste(cat_sel_var_data[, "Variable"])
+cat_summary_merge <- left_join(cat_summary, cat_sel_var_data[, c("Variable", "Element", "ElementNumber", "Description")], by = c(
+  "Variable" = "Variable"))
+
+write.table(cat_summary_merge,"F:/NewJersey/YZOU/Online Leads/cat_var_summary.csv", row.names = FALSE, col.names = TRUE, sep = ",")
+
+
+### binning of variables based on one way analysis
+
+num_data_bin <- num_data_imp[, num_sel_var]
+cat_data_bin <- cat_data_imp[, cat_sel_var]
+rm_num_var <- c("hh_max_veh_age", "V16", "V149")
+rm_cat_var <- c("VAR_122", "VAR_202")
+
+num_to_cat <- c("expr_mo", "hh_min_veh_age", "VAR_159", "VAR_163", "VAR_189", "VAR_198", "VAR_234", "VAR_361", "VAR_371", 
+                "VAR_49", "VAR_50", "VAR_51", "VAR_55", "hh_max_age", "hh_min_age")
+num_to_num <- c("V130")
+num_no_change <- setdiff(num_sel_var, c(rm_num_var, num_to_cat, num_to_num))
+
+cat_bin_var <- c("VAR_115", "VAR_165", "VAR_191", "VAR_254", "VAR_262")
+cat_no_change <- setdiff(cat_sel_var, c(rm_cat_var, cat_bin_var))
+
+## numerical variables
+
+# expr_mo
+num_data_bin[, "expr_mo"] <- paste(num_data_imp[, "expr_mo"])
+var_bin_ind <- which((num_data_imp[, "expr_mo"] >= 0) & (num_data_imp[, "expr_mo"] <= 2) & (!is.na(num_data[, "expr_mo"]))) 
+num_data_bin[var_bin_ind, "expr_mo"] <- "0_2"
+var_bin_ind <- which((num_data_imp[, "expr_mo"] >= 3) & (num_data_imp[, "expr_mo"] <= 5) & (!is.na(num_data[, "expr_mo"]))) 
+num_data_bin[var_bin_ind, "expr_mo"] <- "3_5"
+var_bin_ind <- which(is.na(num_data[, "expr_mo"]))
+num_data_bin[var_bin_ind, "expr_mo"] <- "Blank"
+
+# hh_min_veh_age
+
+num_data_bin[, "hh_min_veh_age"] <- paste(num_data_imp[, "hh_min_veh_age"])
+var_bin_ind <- which((num_data_imp[, "hh_min_veh_age"] >= 0) & (num_data_imp[, "hh_min_veh_age"] <= 8) & (!is.na(num_data[, "hh_min_veh_age"]))) 
+num_data_bin[var_bin_ind, "hh_min_veh_age"] <- "0_8"
+var_bin_ind <- which((num_data_imp[, "hh_min_veh_age"] >= 9) & (!is.na(num_data[, "hh_min_veh_age"]))) 
+num_data_bin[var_bin_ind, "hh_min_veh_age"] <- "9+"
+var_bin_ind <- which(is.na(num_data[, "hh_min_veh_age"]))
+num_data_bin[var_bin_ind, "hh_min_veh_age"] <- "Blank"
+
+# VAR_159
+
+num_data_bin[, "VAR_159"] <- paste(num_data_imp[, "VAR_159"])
+var_bin_ind <- which((num_data_imp[, "VAR_159"] == 0) & (!is.na(num_data[, "VAR_159"]))) 
+num_data_bin[var_bin_ind, "VAR_159"] <- "0"
+var_bin_ind <- which((num_data_imp[, "VAR_159"] >= 1) & (!is.na(num_data[, "VAR_159"]))) 
+num_data_bin[var_bin_ind, "VAR_159"] <- "1+"
+var_bin_ind <- which(is.na(num_data[, "VAR_159"]))
+num_data_bin[var_bin_ind, "VAR_159"] <- "Blank"
+
+# VAR_163
+
+num_data_bin[, "VAR_163"] <- paste(num_data_imp[, "VAR_163"])
+var_bin_ind <- which((num_data_imp[, "VAR_163"] >= 0) & (num_data_imp[, "VAR_163"] <= 3) & (!is.na(num_data[, "VAR_163"]))) 
+num_data_bin[var_bin_ind, "VAR_163"] <- "0_3"
+var_bin_ind <- which((num_data_imp[, "VAR_163"] >= 4) & (num_data_imp[, "VAR_163"] <= 14) & (!is.na(num_data[, "VAR_163"]))) 
+num_data_bin[var_bin_ind, "VAR_163"] <- "4_14"
+var_bin_ind <- which((num_data_imp[, "VAR_163"] >= 15) & (!is.na(num_data[, "VAR_163"]))) 
+num_data_bin[var_bin_ind, "VAR_163"] <- "15+"
+var_bin_ind <- which(is.na(num_data[, "VAR_163"]))
+num_data_bin[var_bin_ind, "VAR_163"] <- "Blank"
+
+# VAR_189
+
+num_data_bin[, "VAR_189"] <- paste(num_data_imp[, "VAR_189"])
+var_bin_ind <- which((num_data_imp[, "VAR_189"] == 1) & (!is.na(num_data[, "VAR_189"]))) 
+num_data_bin[var_bin_ind, "VAR_189"] <- "1"
+var_bin_ind <- which((num_data_imp[, "VAR_189"] == 2) & (!is.na(num_data[, "VAR_189"]))) 
+num_data_bin[var_bin_ind, "VAR_189"] <- "2"
+var_bin_ind <- which((num_data_imp[, "VAR_189"] >= 3) & (!is.na(num_data[, "VAR_189"]))) 
+num_data_bin[var_bin_ind, "VAR_189"] <- "3+"
+var_bin_ind <- which(is.na(num_data[, "VAR_189"]))
+num_data_bin[var_bin_ind, "VAR_189"] <- "Blank"
+
+# VAR_198
+
+num_data_bin[, "VAR_198"] <- paste(num_data_imp[, "VAR_198"])
+var_bin_ind <- which((num_data_imp[, "VAR_198"] >= 1) & (num_data_imp[, "VAR_198"] <= 2) & (!is.na(num_data[, "VAR_198"]))) 
+num_data_bin[var_bin_ind, "VAR_198"] <- "1_2"
+var_bin_ind <- which((num_data_imp[, "VAR_198"] >= 3) & (!is.na(num_data[, "VAR_198"]))) 
+num_data_bin[var_bin_ind, "VAR_198"] <- "3+"
+var_bin_ind <- which(is.na(num_data[, "VAR_198"]))
+num_data_bin[var_bin_ind, "VAR_198"] <- "Blank"
+
+# VAR_234
+
+num_data_bin[, "VAR_234"] <- paste(num_data_imp[, "VAR_234"])
+var_bin_ind <- which((num_data_imp[, "VAR_234"] == 1) & (!is.na(num_data[, "VAR_234"]))) 
+num_data_bin[var_bin_ind, "VAR_234"] <- "1"
+var_bin_ind <- which((num_data_imp[, "VAR_234"] >= 2) & (num_data_imp[, "VAR_234"] <= 3) & (!is.na(num_data[, "VAR_234"]))) 
+num_data_bin[var_bin_ind, "VAR_234"] <- "2_3"
+var_bin_ind <- which((num_data_imp[, "VAR_234"] >= 4) & (!is.na(num_data[, "VAR_234"]))) 
+num_data_bin[var_bin_ind, "VAR_234"] <- "4+"
+var_bin_ind <- which(is.na(num_data[, "VAR_234"]))
+num_data_bin[var_bin_ind, "VAR_234"] <- "Blank"
+
+# VAR_361
+
+num_data_bin[, "VAR_361"] <- paste(num_data_imp[, "VAR_361"])
+var_bin_ind <- which((num_data_imp[, "VAR_361"] == 0) & (!is.na(num_data[, "VAR_361"]))) 
+num_data_bin[var_bin_ind, "VAR_361"] <- "0"
+var_bin_ind <- which((num_data_imp[, "VAR_361"] > 0) & (num_data_imp[, "VAR_361"] <= 1.3) & (!is.na(num_data[, "VAR_361"]))) 
+num_data_bin[var_bin_ind, "VAR_361"] <- "0.1_1.3"
+var_bin_ind <- which((num_data_imp[, "VAR_361"] > 1.3) & (!is.na(num_data[, "VAR_361"]))) 
+num_data_bin[var_bin_ind, "VAR_361"] <- "1.3+"
+var_bin_ind <- which(is.na(num_data[, "VAR_361"]))
+num_data_bin[var_bin_ind, "VAR_361"] <- "Blank"
+
+# VAR_371
+
+num_data_bin[, "VAR_371"] <- paste(num_data_imp[, "VAR_371"])
+var_bin_ind <- which((num_data_imp[, "VAR_371"] == 0) & (!is.na(num_data[, "VAR_371"]))) 
+num_data_bin[var_bin_ind, "VAR_371"] <- "0"
+var_bin_ind <- which((num_data_imp[, "VAR_371"] >= 1) & (!is.na(num_data[, "VAR_371"]))) 
+num_data_bin[var_bin_ind, "VAR_371"] <- "1+"
+var_bin_ind <- which(is.na(num_data[, "VAR_371"]))
+num_data_bin[var_bin_ind, "VAR_371"] <- "Blank"
+
+# VAR_49
+
+num_data_bin[, "VAR_49"] <- paste(num_data_imp[, "VAR_49"])
+var_bin_ind <- which((num_data_imp[, "VAR_49"] >= 1) & (num_data_imp[, "VAR_49"] <= 3) & (!is.na(num_data[, "VAR_49"]))) 
+num_data_bin[var_bin_ind, "VAR_49"] <- "1_3"
+var_bin_ind <- which((num_data_imp[, "VAR_49"] >= 4) & (num_data_imp[, "VAR_49"] <= 8) & (!is.na(num_data[, "VAR_49"]))) 
+num_data_bin[var_bin_ind, "VAR_49"] <- "4_8"
+var_bin_ind <- which((num_data_imp[, "VAR_49"] >= 9) & (!is.na(num_data[, "VAR_49"]))) 
+num_data_bin[var_bin_ind, "VAR_49"] <- "9+"
+var_bin_ind <- which(is.na(num_data[, "VAR_49"]))
+num_data_bin[var_bin_ind, "VAR_49"] <- "Blank"
+
+# VAR_50
+
+num_data_bin[, "VAR_50"] <- paste(num_data_imp[, "VAR_50"])
+var_bin_ind <- which((num_data_imp[, "VAR_50"] == 1) & (!is.na(num_data[, "VAR_50"]))) 
+num_data_bin[var_bin_ind, "VAR_50"] <- "1"
+var_bin_ind <- which((num_data_imp[, "VAR_50"] >= 2) & (num_data_imp[, "VAR_50"] <= 4) & (!is.na(num_data[, "VAR_50"]))) 
+num_data_bin[var_bin_ind, "VAR_50"] <- "2_4"
+var_bin_ind <- which((num_data_imp[, "VAR_50"] >= 5) & (num_data_imp[, "VAR_50"] <= 7) & (!is.na(num_data[, "VAR_50"]))) 
+num_data_bin[var_bin_ind, "VAR_50"] <- "5_7"
+var_bin_ind <- which((num_data_imp[, "VAR_50"] >= 8) & (!is.na(num_data[, "VAR_50"]))) 
+num_data_bin[var_bin_ind, "VAR_50"] <- "8+"
+var_bin_ind <- which(is.na(num_data[, "VAR_50"]))
+num_data_bin[var_bin_ind, "VAR_50"] <- "Blank"
+
+# VAR_51
+
+num_data_bin[, "VAR_51"] <- paste(num_data_imp[, "VAR_51"])
+var_bin_ind <- which((num_data_imp[, "VAR_51"] >= 1) & (num_data_imp[, "VAR_51"] <= 4) & (!is.na(num_data[, "VAR_51"]))) 
+num_data_bin[var_bin_ind, "VAR_51"] <- "1_4"
+var_bin_ind <- which((num_data_imp[, "VAR_51"] >= 5) & (num_data_imp[, "VAR_51"] <= 7) & (!is.na(num_data[, "VAR_51"]))) 
+num_data_bin[var_bin_ind, "VAR_51"] <- "5_7"
+var_bin_ind <- which((num_data_imp[, "VAR_51"] >= 8) & (num_data_imp[, "VAR_51"] <= 9) & (!is.na(num_data[, "VAR_51"]))) 
+num_data_bin[var_bin_ind, "VAR_51"] <- "8_9"
+var_bin_ind <- which((num_data_imp[, "VAR_51"] == 10) & (!is.na(num_data[, "VAR_51"]))) 
+num_data_bin[var_bin_ind, "VAR_51"] <- "10"
+var_bin_ind <- which(is.na(num_data[, "VAR_51"]))
+num_data_bin[var_bin_ind, "VAR_51"] <- "Blank"
+
+# VAR_55
+
+num_data_bin[, "VAR_55"] <- paste(num_data_imp[, "VAR_55"])
+var_bin_ind <- which((num_data_imp[, "VAR_55"] >= 1) & (num_data_imp[, "VAR_55"] <= 2) & (!is.na(num_data[, "VAR_55"]))) 
+num_data_bin[var_bin_ind, "VAR_55"] <- "1_2"
+var_bin_ind <- which((num_data_imp[, "VAR_55"] == 3) & (!is.na(num_data[, "VAR_55"]))) 
+num_data_bin[var_bin_ind, "VAR_55"] <- "3"
+var_bin_ind <- which((num_data_imp[, "VAR_55"] == 4) & (!is.na(num_data[, "VAR_55"]))) 
+num_data_bin[var_bin_ind, "VAR_55"] <- "4"
+var_bin_ind <- which((num_data_imp[, "VAR_55"] >= 5) & (num_data_imp[, "VAR_55"] <= 7) & (!is.na(num_data[, "VAR_55"]))) 
+num_data_bin[var_bin_ind, "VAR_55"] <- "5_7"
+var_bin_ind <- which((num_data_imp[, "VAR_55"] >= 8) & (!is.na(num_data[, "VAR_55"]))) 
+num_data_bin[var_bin_ind, "VAR_55"] <- "8+"
+var_bin_ind <- which(is.na(num_data[, "VAR_55"]))
+num_data_bin[var_bin_ind, "VAR_55"] <- "Blank"
+
+# hh_max_age
+
+num_data_bin[, "hh_max_age"] <- paste(num_data_imp[, "hh_max_age"])
+var_bin_ind <- which((num_data_imp[, "hh_max_age"] <= 25) & (!is.na(num_data[, "hh_max_age"]))) 
+num_data_bin[var_bin_ind, "hh_max_age"] <- "Under 25"
+var_bin_ind <- which((num_data_imp[, "hh_max_age"] > 25) & (num_data_imp[, "hh_max_age"] <= 35) & (!is.na(num_data[, "hh_max_age"]))) 
+num_data_bin[var_bin_ind, "hh_max_age"] <- "25_35"
+var_bin_ind <- which((num_data_imp[, "hh_max_age"] > 35) & (num_data_imp[, "hh_max_age"] <= 50) & (!is.na(num_data[, "hh_max_age"]))) 
+num_data_bin[var_bin_ind, "hh_max_age"] <- "35_50"
+var_bin_ind <- which((num_data_imp[, "hh_max_age"] > 50) & (num_data_imp[, "hh_max_age"] <= 64) & (!is.na(num_data[, "hh_max_age"]))) 
+num_data_bin[var_bin_ind, "hh_max_age"] <- "50_64"
+var_bin_ind <- which((num_data_imp[, "hh_max_age"] > 64) & (!is.na(num_data[, "hh_max_age"]))) 
+num_data_bin[var_bin_ind, "hh_max_age"] <- "64+"
+var_bin_ind <- which(is.na(num_data[, "hh_max_age"]))
+num_data_bin[var_bin_ind, "hh_max_age"] <- "Blank"
+
+# hh_min_age
+
+num_data_bin[, "hh_min_age"] <- paste(num_data_imp[, "hh_min_age"])
+var_bin_ind <- which((num_data_imp[, "hh_min_age"] <= 21) & (!is.na(num_data[, "hh_min_age"]))) 
+num_data_bin[var_bin_ind, "hh_min_age"] <- "Under 21"
+var_bin_ind <- which((num_data_imp[, "hh_min_age"] > 21) & (num_data_imp[, "hh_min_age"] <= 25) & (!is.na(num_data[, "hh_min_age"]))) 
+num_data_bin[var_bin_ind, "hh_min_age"] <- "21_25"
+var_bin_ind <- which((num_data_imp[, "hh_min_age"] > 25) & (!is.na(num_data[, "hh_min_age"]))) 
+num_data_bin[var_bin_ind, "hh_min_age"] <- "25+"
+var_bin_ind <- which(is.na(num_data[, "hh_min_age"]))
+num_data_bin[var_bin_ind, "hh_min_age"] <- "Blank"
+
+# V130
+
+num_data_bin[, "V130"] <- num_data_imp[, "V130"]
+var_bin_ind <- which(is.na(num_data[, "V130"]))
+num_data_bin[var_bin_ind, "V130"] <- 0
+
+
+## categorical variables
+
+# VAR_115
+
+cat_data_bin[, "VAR_115"] <- paste(cat_data_imp[, "VAR_115"])
+var_bin_ind <- which(cat_data_imp[, "VAR_115"] %in% c("A", "B", "C")) 
+cat_data_bin[var_bin_ind, "VAR_115"] <- "A-C"
+var_bin_ind <- which(cat_data_imp[, "VAR_115"] %in% c("D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q")) 
+cat_data_bin[var_bin_ind, "VAR_115"] <- "D-Q"
+var_bin_ind <- which(cat_data_imp[, "VAR_115"] %in% c("NA")) 
+cat_data_bin[var_bin_ind, "VAR_115"] <- "Blank"
+
+# VAR_165
+
+cat_data_bin[, "VAR_165"] <- paste(cat_data_imp[, "VAR_165"])
+var_bin_ind <- which(cat_data_imp[, "VAR_165"] %in% c("A", "M")) 
+cat_data_bin[var_bin_ind, "VAR_165"] <- "Married"
+var_bin_ind <- which(cat_data_imp[, "VAR_165"] %in% c("B", "S")) 
+cat_data_bin[var_bin_ind, "VAR_165"] <- "Single"
+var_bin_ind <- which(cat_data_imp[, "VAR_165"] %in% c("NA")) 
+cat_data_bin[var_bin_ind, "VAR_165"] <- "Blank"
+
+# table(proc_data[, "VAR_181"], proc_data[, "HIT_DROP_DATE"] != "")
+
+# VAR_191
+
+cat_data_bin[, "VAR_191"] <- paste(cat_data_imp[, "VAR_191"])
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("5", "9")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "5and9"
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("7", "8")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "7and8"
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("A", "B", "V", "Z")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "ABVZ"
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("C", "D", "E", "F", "G", "H", "I", "J", "K", "L")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "C-L"
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("W", "X", "Y")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "W-Y"
+var_bin_ind <- which(cat_data_imp[, "VAR_191"] %in% c("NA")) 
+cat_data_bin[var_bin_ind, "VAR_191"] <- "Blank"
+
+# VAR_254
+
+cat_data_bin[, "VAR_254"] <- paste(cat_data_imp[, "VAR_254"])
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("C1", "C4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "C"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("F4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "F"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("L1", "L2", "L3", "L4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "L"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("M1", "M4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "M"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("P1", "P2", "P3", "P4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "P"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("S1", "S4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "S"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("U1", "U2", "U3", "U4")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "U"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("V1", "V3")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "V"
+var_bin_ind <- which(cat_data_imp[, "VAR_254"] %in% c("NA")) 
+cat_data_bin[var_bin_ind, "VAR_254"] <- "Blank"
+
+# VAR_262
+
+cat_data_bin[, "VAR_262"] <- paste(cat_data_imp[, "VAR_262"])
+var_bin_ind <- which(cat_data_imp[, "VAR_262"] %in% c("1", "4")) 
+cat_data_bin[var_bin_ind, "VAR_262"] <- "1and4"
+var_bin_ind <- which(cat_data_imp[, "VAR_262"] %in% c("2")) 
+cat_data_bin[var_bin_ind, "VAR_262"] <- "2"
+var_bin_ind <- which(cat_data_imp[, "VAR_262"] %in% c("3")) 
+cat_data_bin[var_bin_ind, "VAR_262"] <- "3"
+var_bin_ind <- which(cat_data_imp[, "VAR_262"] %in% c("NA")) 
+cat_data_bin[var_bin_ind, "VAR_262"] <- "Blank"
+
+## combine variables of same category
+
+#length(cat_no_change) + length(cat_bin_var) + length(num_to_cat)
+#length(num_no_change) + length(num_to_num)
+
+num_data_b <- num_data_bin[, c(num_no_change, num_to_num)]
+cat_data_b <- cbind(cat_data_bin[, c(cat_no_change, cat_bin_var)], num_data_bin[, num_to_cat])
+
+
+# investigate the distribution and response rate of each categorical variable
+ptm <- proc.time()
+cat_summary_2 <- NULL
+for (i in 1:ncol(cat_data_b)) {
+  levels_i <- sort(unique(cat_data_b[, i]))
+  cat_len_i <- length(levels_i)
+  for (j in 1:cat_len_i) {
+    cat_i_j_0 <- sum(quote_ind[cat_data_b[, i] == levels_i[j]] == 0)
+    cat_i_j_1 <- sum(quote_ind[cat_data_b[, i] == levels_i[j]] == 1)
+    cat_i_j <- cat_i_j_0 + cat_i_j_1
+    cat_i_j_rate <- round(cat_i_j_1/cat_i_j, 5)
+    cat_i_j_vec <- c(colnames(cat_data_b)[i], levels_i[j], cat_i_j, cat_i_j_0, cat_i_j_1, cat_i_j_rate)
+    cat_summary_2 <- rbind(cat_summary_2, t(cat_i_j_vec))
+  }
+}
+proc.time() - ptm # 20s
+
+colnames(cat_summary_2) <- c("Variable", "Level", "Count", "No_Quote", "Quoted", "Response_Rate")
+cat_summary_2 <- data.frame(cat_summary_2)
+cat_summary_2[, "Variable"] <- paste(cat_summary_2[, "Variable"])
+cat_sel_var_data[, "Variable"] <- paste(cat_sel_var_data[, "Variable"])
+cat_summary_merge_2 <- left_join(cat_summary_2, rbind(cat_sel_var_data[, c("Variable", "Element", "ElementNumber", "Description")],
+                                                      num_sel_var_data[, c("Variable", "Element", "ElementNumber", "Description")]), by = c("Variable" = "Variable"))
+
+write.table(cat_summary_merge_2,"F:/NewJersey/YZOU/Online Leads/cat_var_summary_2.csv", row.names = FALSE, col.names = TRUE, sep = ",")
+
+
+#save(num_data_b, cat_data_b,other_data, quote_ind, file = 'F:/NewJersey/YZOU/Online Leads/Binned_data.RData')
+#load('F:/NewJersey/YZOU/Online Leads/Binned_data.RData')
+
+####---------------------------------------------------------------------------------------------------------------------------------
+#### Divide data into training (targeted), validation (random) and test data (out of time) to test random vs targeted
+
+## set seed so that the results are replicable 
+
+latest_drop_date <- as.Date(paste(other_data[, "DROP_DATE_1"]))
+
+set.seed(123)
+test_prop <- 0.3
+valid_prop <- 0.2
+
+## use out of time strategy to split the data into training and test
+# test_ind1 <- which((latest_drop_date > as.Date("2017-10-31")) & (other_data[, "VAR_8"] == "NJ"))
+test_ind1 <- which((latest_drop_date > as.Date("2017-11-04")) & (other_data[, "VAR_8"] == "NJ"))
+valid_ind2 <- which(other_data[, "VAR_8"] == "PA")
+test_ind <- sort(test_ind1)
+rest_ind <- setdiff(1:nrow(proc_data_2), test_ind)
+
+## use targeted/null as training and random as validation
+target_type <- apply(other_data[rest_ind, c("TARGET_TYPE_1", "TARGET_TYPE_2", "TARGET_TYPE_3", "TARGET_TYPE_4", "TARGET_TYPE_5", 
+                                            "HIT_TARGET_TYPE")], 1, function(x) { if (sum(x == "Random") >= 1) return("Random") else return("Targeted") })
+table(target_type[other_data[rest_ind, "VAR_8"] == "NJ"])
+table(target_type[other_data[rest_ind, "VAR_8"] == "PA"])
+
+# set.seed(123)
+valid_ind1 <- rest_ind[(other_data[rest_ind, "VAR_8"] == "NJ") & (target_type == "Random")]
+rest_pa <- rest_ind[other_data[rest_ind, "VAR_8"] == "PA"]
+valid_ind <- sort(c(valid_ind1, valid_ind2))
+train_ind <- setdiff(rest_ind, valid_ind)
+
+## look at NJ & PA data only and split data into training, validation, and test
+
+train_num_data <- num_data_b[train_ind, ]
+valid_num_data <- num_data_b[valid_ind, ]
+test_num_data <- num_data_b[test_ind, ]
+
+train_cat_data <- cat_data_b[train_ind, ]
+valid_cat_data <- cat_data_b[valid_ind, ]
+test_cat_data <- cat_data_b[test_ind, ]
+
+train_other_data <- other_data[train_ind, ]
+valid_other_data <- other_data[valid_ind, ]
+test_other_data <- other_data[test_ind, ]
+
+train_quote_ind <- quote_ind[train_ind]
+valid_quote_ind <- quote_ind[valid_ind]
+test_quote_ind <- quote_ind[test_ind]
+
+#rm(num_data, cat_data, num_data_imp, cat_data_imp, proc_data_2)
+#rm(train_num_data, valid_num_data, test_num_data, train_cat_data, valid_cat_data, test_cat_data, train_other_data, valid_other_data, test_other_data)  
+gc()
+
+
+### Process data for model (raw data -- no resampling on "rare events")
+
+### Use raw data (not bootstrap)
+
+train_data <- cbind(train_num_data, train_cat_data, y = train_quote_ind)
+valid_data <- cbind(valid_num_data, valid_cat_data, y = valid_quote_ind)
+test_data <- cbind(test_num_data, test_cat_data, y = test_quote_ind)
+
+for (i in 1:ncol(train_num_data)) {
+  train_data[, i] <- as.numeric(train_data[, i])
+  valid_data[, i] <- as.numeric(valid_data[, i])
+  test_data[, i] <- as.numeric(test_data[, i])
+}
+for (i in ncol(train_num_data)+1:ncol(train_cat_data)) {
+  train_data[, i] <- as.factor(train_data[, i])
+  valid_data[, i] <- as.factor(valid_data[, i])
+  test_data[, i] <- as.factor(test_data[, i])
+}
+
+# rescale variables
+train_data[, "V48"] <- train_data[, "V48"]/100000
+valid_data[, "V48"] <- valid_data[, "V48"]/100000
+test_data[, "V48"] <- test_data[, "V48"]/100000
+
+train_data[, "V201"] <- train_data[, "V201"]/10000
+valid_data[, "V201"] <- valid_data[, "V201"]/10000
+test_data[, "V201"] <- test_data[, "V201"]/10000
+
+train_data[, "V262"] <- train_data[, "V262"]/10000
+valid_data[, "V262"] <- valid_data[, "V262"]/10000
+test_data[, "V262"] <- test_data[, "V262"]/10000
+
+train_data[, "V275"] <- train_data[, "V275"]/100
+valid_data[, "V275"] <- valid_data[, "V275"]/100
+test_data[, "V275"] <- test_data[, "V275"]/100
+
+train_data[, "V302"] <- train_data[, "V302"]/10000
+valid_data[, "V302"] <- valid_data[, "V302"]/10000
+test_data[, "V302"] <- test_data[, "V302"]/10000
+
+
+### Build models based on first round of training (targeted data) and test on validation/test (random and out of time-OOT data)
+
+### Logistic regression model
+
+ptm <- proc.time()
+lr_fit_b <- glm(y ~ ., data = train_data[, -which(colnames(train_data) == "VAR_197")], family = binomial(link = "logit"))
+proc.time() - ptm # 960s
+
+summary(lr_fit_b)
+
+train_prob <- predict(lr_fit_b, type = "response")
+valid_prob <- predict(lr_fit_b, valid_data, type = "response")
+test_prob <- predict(lr_fit_b, test_data, type = "response")
+hist(valid_prob, breaks = 100)
+hist(test_prob, breaks = 100)
+
+## Function to evaluate performance of model
+
+perf_fun <- function(y, phat, M) {
+  
+  res <- matrix(0, M, 6)
+  if (length(y) != length(phat)) {
+    cat("Error! Lengths of y and yhat differ! ")
+    break
+  }
+  
+  n <- length(y)
+  yhat_sort <- sort(phat, decreasing = TRUE, index.return = TRUE)
+  norm_vec <- 1:n
+  seq_vec <- seq(1, n+1, length.out = M+1)
+  for (i in 1:M) {
+    ind_i <- which((norm_vec >= seq_vec[i]) & (norm_vec < seq_vec[i+1]))
+    res[i, 1] <- i
+    res[i, 2] <- length(ind_i)
+    res[i, 3] <- sum(y[yhat_sort$ix[ind_i]])
+  }
+  
+  res[, 5] <- cumsum(res[, 3])
+  res[, 4] <- round(res[, 3]/sum(res[, 3]), 4)
+  res[, 6] <- round(res[, 5]/sum(res[, 3]), 4)
+  colnames(res) <- c("Bucket", "Count", "Response Count", "Percentage", "Cummulative Response Count", "Cummulative Percentage")
+  rownames(res) <- 1:M    
+  
+  return(res)
+  
+}
+
+## check performance of model on validation and test data
+
+train_res_mat <- perf_fun(train_quote_ind, train_prob, 20) 
+valid_res_mat <- perf_fun(valid_quote_ind, valid_prob, 20) 
+test_res_mat <- perf_fun(test_quote_ind, test_prob, 20)
+
+plot(1:20, (1:20)/20, xlim = c(1, 20), type = "l", cex = 0.5, xlab = "Bucket", ylab = "Cummulative Percentage", main = "Performance Plot")
+lines(train_res_mat[, 1], train_res_mat[, 6], lty = 2, col = 1)
+lines(valid_res_mat[, 1], valid_res_mat[, 6], lty = 2, col = 2)
+lines(test_res_mat[, 1], test_res_mat[, 6], lty = 2, col = 3)
+legend("topleft", c("train", "valid", "test"), lty = 2, col = c(1, 2, 3))
+
+# write.table(train_res_mat, paste(dir, "/Spreadsheet/Model Results/Logistic Regression/bin_train_perf_tab.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+# write.table(valid_res_mat, paste(dir, "/Spreadsheet/Model Results/Logistic Regression/bin_valid_perf_tab.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+# write.table(test_res_mat, paste(dir, "/Spreadsheet/Model Results/Logistic Regression/bin_test_perf_tab.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",")
+
+library(pROC)
+ptm <- proc.time()
+train_roc_b <- roc(train_quote_ind ~ train_prob)
+proc.time() - ptm # 17736s
+ptm <- proc.time()
+valid_roc_b <- roc(valid_quote_ind ~ valid_prob)
+proc.time() - ptm # 3082s
+ptm <- proc.time()
+test_roc_b <- roc(test_quote_ind ~ test_prob)
+proc.time() - ptm # 1030s
+
+plot(train_roc_b)
+plot(valid_roc_b)
+plot(test_roc_b)
+
+auc(train_roc_b) # 0.6171
+auc(valid_roc_b) # 0.6302
+auc(test_roc_b) # 0.6143
+
+# save(lr_fit_b, train_roc_b, valid_roc_b, test_roc_b, train_res_mat, valid_res_mat, test_res_mat, file = paste(dir, "Data/lr_fit_auc_b.RData",sep = ''))
+# load(paste(dir, "Data/lr_fit_auc_b.RData", sep = ''))
+
+
+### GBM model
+library(caret)
+set.seed(123)
+fitControl <- trainControl(method = "repeatedcv", number = 4, repeats = 4)
+train_data[, "outcome"] <- ifelse(train_data[, "y"] == 1, "Yes", "No")
+ptm <- proc.time()
+gbm_fit <- train(as.factor(outcome) ~ ., data = train_data[, -c(which(colnames(train_data) == "VAR_197"), ncol(train_data)-1)], method = "gbm", 
+                 trControl = fitControl, verbose = FALSE)
+proc.time() - ptm # 98548s=27.37hours
+
+plot(gbm_fit)
+str(gbm_fit)
+ggplot(gbm_fit)
+densityplot(gbm_fit, pch = "|")
+# write.table(summary(gbm_fit), paste(dir, "/Spreadsheet/Model Results/GBM/bin_train_imp_summary.csv", sep = ''), row.names = FALSE, col.names = TRUE, sep = ",") 
+# save(gbm_fit, file = paste(dir, "Data/gbm_fit_b.RData", sep = ''))
+
+
+### Xgboost model
+# ptm <- proc.time()
+# xgboost_fit <- xgboost(data = train_data[, -(ncol(train_data)-2:1)], label = train_data[, "y"], max.depth = 1, eta = 0.1, nthread = 5, 
+#     nround = 2, objective = "binary:logistic")
+# proc.time() - ptm # 
+
+# rm(train_data, valid_data, test_data)
+gc()
+
+
