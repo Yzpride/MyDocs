@@ -1,0 +1,32 @@
+
+
+### try stepwise glm function in caret package to select variables based on AIC
+fitControl_logistic <- trainControl(method = "repeatedcv", number = 5, repeats = 1, savePredictions = TRUE)
+set.seed(12345)
+forward_glm_fit <- train(x = sample_data_num_imp,  y = sample_data[, "Quoted"], method = "glmStepAIC", direction = "forward", trControl = fitControl_logistic, allowParallel = TRUE)
+summary(forward_glm_fit)
+varImp(forward_glm_fit)
+
+set.seed(12345)
+forward_glm_fit2 <- train(x = sample_data_num_imp[,1:50],  y = as.factor(sample_data[, "Quoted"]), method = "glmStepAIC", direction = "forward", trControl = fitControl_logistic, allowParallel = TRUE)
+summary(forward_glm_fit2)
+varImp(forward_glm_fit2)
+
+set.seed(12345)
+forward_glm_fit3 <- train(x = sample_data_cat_imp[,1:50],  y = as.factor(sample_data[, "Quoted"]), method = "glmStepAIC", direction = "forward", trControl = fitControl_logistic, allowParallel = TRUE)
+summary(forward_glm_fit3)
+varImp(forward_glm_fit3)
+
+fitControl_glm <- trainControl(method = "repeatedcv", number = 5, repeats = 1, savePredictions = TRUE)
+set.seed(12345)
+gbmFit2 <- train(x = sample_data_num_imp[,1:50],  y = as.factor(sample_data[, "Quoted"]), 
+                 method = "gbm", 
+                 trControl = fitControl_glm,
+                 verbose = FALSE)
+summary(gbmFit2)
+varImp(gbmFit2)
+plot(gbmFit2)
+plot(gbmFit2, metric = "kappa")
+str(gbmFit2)
+ggplot(gbmFit2)
+densityplot(gbmFit2, pch = "|")
