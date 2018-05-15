@@ -1,0 +1,97 @@
+
+library(dplyr)
+library(ggplot2)
+
+#Convert all numeric variables into 10 deciles and save them into a new data frame
+sample_data_num <- data.frame(apply(sample_data[,c(ax_var_list_num, cr_var_list)], 2, function(x) x <- cut(x, breaks = unique(quantile(x, seq(0,1,0.1), 
+                                                                                                                                       na.rm = TRUE)), 
+                                                                                                           include.lowest = TRUE)))
+
+
+
+
+set.seed(12345)
+dataf <- data.frame(
+  churn = sample(c(0,1),1000, replace = TRUE),
+  var_cat1 = sample(c('A','B','C','D'),1000, replace = TRUE),
+  var_cat2 = sample(c('d','e','f','g'),1000, replace = TRUE),
+  var_num = abs(rnorm(1000,0,1000))
+)
+
+#Check the one-way relationship between target variable and explanatory variable (Categorical variable)
+#Create a function that perform group-by analysis
+CHURN_RATE_BY_VAR <- function (df,by_var){
+  df %>%  select(churn, !!by_var) %>% 
+    group_by_(level = by_var) %>% 
+    summarise(cnt = n(),
+              cnt_churn = sum(churn))%>% 
+    mutate(variable = by_var,
+           percentage = cnt / sum(cnt),
+           churn_rate = cnt_churn/cnt)
+}
+
+CHURN_RATE_BY_VARLIST <- function(df_in, by_var_list ){
+  for (var in by_var_list) {
+    if(exists("df_out") == FALSE) {
+      df_out <- CHURN_RATE_BY_VAR(df_in, var)
+    }  
+    else {
+      df_out <- rbind(df_out, CHURN_RATE_BY_VAR(df_in, var))
+    }
+  }  
+  return(df_out)
+}
+
+tbl_churn_rate <- CHURN_RATE_BY_VARLIST(dataf, c('var_cat1','var_cat2'))
+
+
+var = 'var_cat2'
+
+tbl_churn_rate %>% 
+  filter(variable == var ) %>% 
+  ggplot() + 
+  labs(title = paste0("Churn rate by ",var))+
+  geom_bar(mapping = aes(x =level, y = percentage), stat = "identity", fill = "grey") +
+  geom_line(mapping = aes(x = level, y = churn_rate, group = 1), size = 2, color = "blue") + 
+  scale_x_discrete(name = var) +
+  scale_y_continuous(name = "Churn Rate", limits = c(0,1),
+                     sec.axis = sec_axis(~., name = "Percentage", labels = function(b) { paste0(round(b * 100, 0), "%")}))
+
+
+# tbl_churn_rate %>% 
+#   filter(variable =='var_cat1' ) %>% 
+#   ggplot(aes(level, churn_rate, group = 1)) + 
+#   geom_line() +
+#   labs(x = 'var_cat1', y = 'churn rate', title = "Reponse rate by variable")
+# 
+# 
+# tbl_churn_rate %>% 
+#   filter(variable =='var_cat1' ) %>% 
+#   ggplot(aes(variable, level, percentage, churn_rate, group = 1)) + 
+#   geom_line(aes(y = churn_rate)) +
+#   geom_line(aes(y = percentage))
+
+# 
+# 
+# tbl_churn_rate <- tbl_churn_rate %>% filter(variable == 'var_cat1')
+# 
+# 
+# ggplot() + 
+#   geom_bar(mapping = aes(x = tbl_churn_rate$level, y = tbl_churn_rate$percentage), stat = "identity", fill = "grey") +
+#   geom_line(mapping = aes(x = tbl_churn_rate$level, y = tbl_churn_rate$churn_rate, group = 1), size = 2, color = "blue") + 
+#   scale_x_discrete(name = "Variable Level") +
+#   scale_y_continuous(name = "Churn Rate",
+#                      sec.axis = sec_axis(~., name = "Percentage", 
+#                                          labels = function(b) { paste0(round(b * 100, 0), "%")}))
+# 
+# 
+# ggplot() + 
+#   geom_bar(mapping = aes(x = tbl_churn_rate$level, y = tbl_churn_rate$percentage), stat = "identity", fill = "grey") +
+#   geom_line(mapping = aes(x = tbl_churn_rate$level, y = tbl_churn_rate$churn_rate, group = 1), size = 2, color = "blue") + 
+#   scale_x_discrete(name = "Variable Level") +
+#   scale_y_continuous(name = "Churn Rate", limits = c(0,1),
+#                      sec.axis = sec_axis(~., name = "Percentage", 
+#                                          labels = function(b) { paste0(round(b * 100, 0), "%")}))
+# 
+
+
