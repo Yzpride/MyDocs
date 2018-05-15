@@ -6,3 +6,5 @@ https://www.r-bloggers.com/evaluating-logistic-regression-models/
 https://topepo.github.io/caret/subsampling-for-class-imbalances.html
 https://stats.stackexchange.com/questions/82162/cohens-kappa-in-plain-english?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
 Confusion Matrix based on specified cutoff: https://stackoverflow.com/questions/32128879/how-to-change-the-threshold-for-binary-classification
+Explanation on TP/TN/FP/FN: https://medium.com/greyatom/performance-metrics-for-classification-problems-in-machine-learning-part-i-b085d432082b
+Optimize the cutoff: http://appliedpredictivemodeling.com/blog/2014/2/1/lw6har9oewknvus176q4o41alqw2ow
