@@ -8,3 +8,7 @@ https://stats.stackexchange.com/questions/82162/cohens-kappa-in-plain-english?ut
 Confusion Matrix based on specified cutoff: https://stackoverflow.com/questions/32128879/how-to-change-the-threshold-for-binary-classification
 Explanation on TP/TN/FP/FN: https://medium.com/greyatom/performance-metrics-for-classification-problems-in-machine-learning-part-i-b085d432082b
 Optimize the cutoff: http://appliedpredictivemodeling.com/blog/2014/2/1/lw6har9oewknvus176q4o41alqw2ow
+Optimize the cutoff 2: http://rstudio-pubs-static.s3.amazonaws.com/145252_b241fc4c9cc640a185e721694648ad31.html
+Calculate CV predictions on training dataset and plot ROC: https://stats.stackexchange.com/questions/195264/repeated-crossvalidation-finalmodel-and-roc-curves
+Plot ROC in Caret: https://stackoverflow.com/questions/31138751/roc-curve-from-training-data-in-caret
+Visualization in NYC Taxi Kaggle: https://www.kaggle.com/headsortails/nyc-taxi-eda-update-the-fast-the-curious/code
