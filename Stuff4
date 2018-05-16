@@ -6,6 +6,16 @@ library(ggplot2)
 sample_data_num <- data.frame(apply(sample_data[,c(ax_var_list_num, cr_var_list)], 2, function(x) x <- cut(x, breaks = unique(quantile(x, seq(0,1,0.1), 
                                                                                                                                        na.rm = TRUE)), 
                                                                                                            include.lowest = TRUE)))
+#Create lower bound and upper bound for numeric variables and sort the tables by variable and their lower bound value.
+tbl_1w_ax_num <- cbind(LB = apply(tbl_1w_ax_num[,'Level'], 1, function(x) as.numeric(gsub(c("\\[|\\("),"",unlist(strsplit(x,split = ",", fixed=TRUE))[1]))),
+                       UB = apply(tbl_1w_ax_num[,'Level'], 1, function(x) as.numeric(gsub(c("\\]|\\)"),"",unlist(strsplit(x,split = ",", fixed=TRUE))[2]))),
+                       tbl_1w_ax_num)
+tbl_1w_ax_num <- tbl_1w_ax_num[order(tbl_1w_ax_num$Variable, tbl_1w_ax_num$LB), ]
+
+tbl_1w_cr <- cbind(LB = apply(tbl_1w_cr[,'Level'], 1, function(x) as.numeric(gsub(c("\\[|\\("),"",unlist(strsplit(x,split = ",", fixed=TRUE))[1]))),
+                   UB = apply(tbl_1w_cr[,'Level'], 1, function(x) as.numeric(gsub(c("\\]|\\)"),"",unlist(strsplit(x,split = ",", fixed=TRUE))[2]))),
+                   tbl_1w_cr)
+tbl_1w_cr <- tbl_1w_cr[order(tbl_1w_cr$Variable, tbl_1w_cr$LB), ]
 
 
 
