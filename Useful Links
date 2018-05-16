@@ -13,3 +13,4 @@ Calculate CV predictions on training dataset and plot ROC: https://stats.stackex
 Plot ROC in Caret: https://stackoverflow.com/questions/31138751/roc-curve-from-training-data-in-caret
 Plot multiple ROC curvs in one chart: https://stats.stackexchange.com/questions/29039/plotting-overlaid-roc-curves
 Visualization in NYC Taxi Kaggle: https://www.kaggle.com/headsortails/nyc-taxi-eda-update-the-fast-the-curious/code
+Explanation of ROC and AUC: http://gim.unmc.edu/dxtests/roc3.htm
